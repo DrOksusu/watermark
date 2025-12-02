@@ -33,11 +33,15 @@ interface ExportModalProps {
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
+function buildFontString(size: number, family: string): string {
+  return size.toString() + 'px ' + family;
+}
+
 export default function ExportModal({ open, onOpenChange, stageRef }: ExportModalProps) {
   const { images } = useImageStore();
   const { logo, position: logoPosition, scale: logoScale, opacity: logoOpacity } = useLogoStore();
   const { text: dateText, position: datePosition, font } = useDateStore();
-  const { annotations, getAnnotations } = useAnnotationStore();
+  const { getAnnotations } = useAnnotationStore();
   const { settings, setSettings, isExporting, setIsExporting, progress, setProgress } = useExportStore();
 
   const [currentExporting, setCurrentExporting] = useState('');
@@ -61,10 +65,8 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       mainImg.src = imageFile.url;
 
       mainImg.onload = () => {
-        // Draw main image
         ctx.drawImage(mainImg, 0, 0, imageFile.width, imageFile.height);
 
-        // Draw logo
         if (logo) {
           const logoImg = new Image();
           logoImg.crossOrigin = 'anonymous';
@@ -86,15 +88,12 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         }
 
         function drawDateAndAnnotations() {
-          // Draw date text
           if (dateText && font) {
-            const fontStyle = String(font.size) + 'px ' + String(font.family);
-            ctx.font = fontStyle;
+            ctx.font = buildFontString(font.size, font.family);
             ctx.fillStyle = font.color;
             ctx.fillText(dateText, datePosition.x, datePosition.y + font.size);
           }
 
-          // Draw annotations
           const imageAnnotations = getAnnotations(imageFile.id);
           imageAnnotations.forEach((annotation) => {
             ctx.strokeStyle = annotation.style.color;
@@ -109,37 +108,39 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
             if (annotation.type === 'box' || annotation.type === 'dashed-box') {
               const radius = annotation.style.borderRadius;
-              const { x, y } = annotation.position;
-              const { width, height } = annotation.size;
+              const ax = annotation.position.x;
+              const ay = annotation.position.y;
+              const aw = annotation.size.width;
+              const ah = annotation.size.height;
 
               if (radius > 0) {
                 ctx.beginPath();
-                ctx.moveTo(x + radius, y);
-                ctx.lineTo(x + width - radius, y);
-                ctx.quadraticCurveTo(x + width, y, x + width, y + radius);
-                ctx.lineTo(x + width, y + height - radius);
-                ctx.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
-                ctx.lineTo(x + radius, y + height);
-                ctx.quadraticCurveTo(x, y + height, x, y + height - radius);
-                ctx.lineTo(x, y + radius);
-                ctx.quadraticCurveTo(x, y, x + radius, y);
+                ctx.moveTo(ax + radius, ay);
+                ctx.lineTo(ax + aw - radius, ay);
+                ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + radius);
+                ctx.lineTo(ax + aw, ay + ah - radius);
+                ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - radius, ay + ah);
+                ctx.lineTo(ax + radius, ay + ah);
+                ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - radius);
+                ctx.lineTo(ax, ay + radius);
+                ctx.quadraticCurveTo(ax, ay, ax + radius, ay);
                 ctx.closePath();
                 ctx.stroke();
               } else {
-                ctx.strokeRect(x, y, width, height);
+                ctx.strokeRect(ax, ay, aw, ah);
               }
             } else if (annotation.type === 'arrow' && annotation.points) {
-              const [, , dx, dy] = annotation.points;
+              const pts = annotation.points;
+              const dx = pts[2];
+              const dy = pts[3];
               const endX = annotation.position.x + dx;
               const endY = annotation.position.y + dy;
 
-              // Draw line
               ctx.beginPath();
               ctx.moveTo(annotation.position.x, annotation.position.y);
               ctx.lineTo(endX, endY);
               ctx.stroke();
 
-              // Draw arrowhead
               const angle = Math.atan2(dy, dx);
               const headLength = 15;
               ctx.beginPath();
@@ -161,7 +162,6 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             }
           });
 
-          // Get data URL
           const mimeType = settings.format === 'png' ? 'image/png' : 'image/jpeg';
           const quality = settings.quality / 100;
           const dataUrl = canvas.toDataURL(mimeType, quality);
@@ -185,18 +185,16 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         const dataUrl = await exportSingleImage(image);
         if (dataUrl) {
-          // Create download link
           const link = document.createElement('a');
           const extension = settings.format === 'png' ? 'png' : 'jpg';
-          const filename = `${settings.filenamePrefix}${i + 1}.${extension}`;
+          const filename = settings.filenamePrefix + (i + 1).toString() + '.' + extension;
           link.download = filename;
           link.href = dataUrl;
           document.body.appendChild(link);
           link.click();
           document.body.removeChild(link);
 
-          // Small delay between downloads
-          await new Promise((resolve) => setTimeout(resolve, 300));
+          await new Promise((r) => setTimeout(r, 300));
         }
       }
 
@@ -209,6 +207,8 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       setCurrentExporting('');
     }
   };
+
+  const progressWidth = progress.toString() + '%';
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -278,7 +278,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
               <div className="h-2 bg-muted rounded-full overflow-hidden">
                 <div
                   className="h-full bg-primary transition-all"
-                  style={{ width: `${progress}%` }}
+                  style={{ width: progressWidth }}
                 />
               </div>
               <p className="text-xs text-muted-foreground text-right">{progress}%</p>
