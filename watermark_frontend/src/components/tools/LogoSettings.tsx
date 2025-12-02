@@ -1,0 +1,118 @@
+'use client';
+
+import { useCallback } from 'react';
+import { useDropzone } from 'react-dropzone';
+import { useLogoStore } from '@/stores/useLogoStore';
+import { Label } from '@/components/ui/label';
+import { Slider } from '@/components/ui/slider';
+import { Button } from '@/components/ui/button';
+import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { cn } from '@/lib/utils';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+
+export default function LogoSettings() {
+  const { logo, scale, opacity, setLogo, setScale, setOpacity, removeLogo } =
+    useLogoStore();
+
+  const onDrop = useCallback(
+    (acceptedFiles: File[]) => {
+      if (acceptedFiles.length > 0) {
+        setLogo(acceptedFiles[0]);
+      }
+    },
+    [setLogo]
+  );
+
+  const { getRootProps, getInputProps, isDragActive } = useDropzone({
+    onDrop,
+    accept: {
+      'image/png': ['.png'],
+      'image/jpeg': ['.jpg', '.jpeg'],
+    },
+    multiple: false,
+  });
+
+  return (
+    <Card>
+      <CardHeader className="pb-3">
+        <CardTitle className="text-sm flex items-center gap-2">
+          <ImageIcon className="h-4 w-4" />
+          로고 설정
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {logo ? (
+          <div className="space-y-3">
+            <div className="relative inline-block">
+              <img
+                src={logo.url}
+                alt="로고"
+                className="max-h-16 object-contain rounded border"
+              />
+              <Button
+                variant="destructive"
+                size="icon"
+                className="absolute -top-2 -right-2 h-5 w-5"
+                onClick={removeLogo}
+              >
+                <X className="h-3 w-3" />
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label className="text-xs">크기</Label>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(scale * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[scale]}
+                onValueChange={([value]) => setScale(value)}
+                min={0.1}
+                max={2}
+                step={0.05}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label className="text-xs">투명도</Label>
+                <span className="text-xs text-muted-foreground">
+                  {Math.round(opacity * 100)}%
+                </span>
+              </div>
+              <Slider
+                value={[opacity]}
+                onValueChange={([value]) => setOpacity(value)}
+                min={0.1}
+                max={1}
+                step={0.05}
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            {...getRootProps()}
+            className={cn(
+              'border-2 border-dashed rounded-lg p-4 text-center cursor-pointer transition-colors',
+              isDragActive
+                ? 'border-primary bg-primary/5'
+                : 'border-muted-foreground/25 hover:border-primary/50'
+            )}
+          >
+            <input {...getInputProps()} />
+            <Upload className="h-6 w-6 mx-auto mb-2 text-muted-foreground" />
+            <p className="text-xs text-muted-foreground">
+              로고 이미지 업로드 (PNG 권장)
+            </p>
+          </div>
+        )}
+
+        <p className="text-xs text-muted-foreground">
+          캔버스에서 드래그하여 위치를 조정하세요
+        </p>
+      </CardContent>
+    </Card>
+  );
+}

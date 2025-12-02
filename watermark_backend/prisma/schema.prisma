@@ -1,0 +1,82 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+  url      = env("DATABASE_URL")
+}
+
+model Image {
+  id           String   @id @default(uuid())
+  originalName String
+  filename     String
+  url          String
+  width        Int
+  height       Int
+  size         Int
+  mimeType     String
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("images")
+}
+
+model Logo {
+  id        String   @id @default(uuid())
+  name      String
+  filename  String
+  url       String
+  width     Int
+  height    Int
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("logos")
+}
+
+model Settings {
+  id            String   @id @default(uuid())
+  name          String   @default("default")
+  logoPositionX Float    @default(20)
+  logoPositionY Float    @default(20)
+  logoAnchor    String   @default("top-left")
+  logoScale     Float    @default(1)
+  logoOpacity   Float    @default(1)
+  datePositionX Float    @default(20)
+  datePositionY Float    @default(60)
+  dateFormat    String   @default("YY.MM")
+  fontFamily    String   @default("Pretendard")
+  fontSize      Int      @default(24)
+  fontColor     String   @default("#FFFFFF")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@map("settings")
+}
+
+model AnnotationTemplate {
+  id           String   @id @default(uuid())
+  name         String
+  type         String
+  color        String   @default("#FF0000")
+  thickness    Int      @default(2)
+  lineStyle    String   @default("solid")
+  borderRadius Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@map("annotation_templates")
+}
+
+model ProcessedImage {
+  id           String   @id @default(uuid())
+  originalId   String
+  filename     String
+  url          String
+  settings     Json
+  createdAt    DateTime @default(now())
+
+  @@map("processed_images")
+}
