@@ -1,98 +1,55 @@
-name: Build and Deploy Backend to AWS Lightsail
+name: Deploy Backend to AWS Lightsail Instance
 
 on:
   push:
     branches:
       - main
     paths:
-      - 'watermark_backend/**'  # 백엔드 변경 시만 실행
-  workflow_dispatch:  # 수동 실행 가능
-
-env:
-  AWS_REGION: ap-northeast-2
-  LIGHTSAIL_SERVICE_NAME: watermark-backend
-  IMAGE_NAME: watermark-backend
+      - 'watermark_backend/**'
+  workflow_dispatch:
 
 jobs:
-  build-and-deploy:
+  deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Configure AWS credentials
-        uses: aws-actions/configure-aws-credentials@v4
+      - name: Deploy to Lightsail Instance
+        uses: appleboy/ssh-action@v1.0.3
         with:
-          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-          aws-region: ${{ env.AWS_REGION }}
+          host: ${{ secrets.LIGHTSAIL_HOST }}
+          username: ${{ secrets.LIGHTSAIL_USERNAME }}
+          key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
+          script: |
+            # Navigate to app directory
+            cd ~/watermark-backend || mkdir -p ~/watermark-backend
 
-      - name: Install AWS Lightsail CLI plugin
-        run: |
-          curl "https://s3.us-west-2.amazonaws.com/lightsailctl/latest/linux-amd64/lightsailctl" -o "/usr/local/bin/lightsailctl"
-          chmod +x /usr/local/bin/lightsailctl
+            # Clone or pull latest code
+            if [ -d ".git" ]; then
+              git pull origin main
+            else
+              git clone https://github.com/${{ github.repository }}.git .
+            fi
 
-      - name: Build Docker image
-        working-directory: ./watermark_backend
-        run: |
-          docker build -t ${{ env.IMAGE_NAME }}:latest .
+            # Navigate to backend folder
+            cd watermark_backend
 
-      - name: Push image to Lightsail container service
-        run: |
-          aws lightsail push-container-image \
-            --region ${{ env.AWS_REGION }} \
-            --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-            --label ${{ env.IMAGE_NAME }} \
-            --image ${{ env.IMAGE_NAME }}:latest
+            # Install dependencies
+            npm ci --production
 
-      - name: Get pushed image name
-        id: get-image
-        run: |
-          IMAGE=$(aws lightsail get-container-images \
-            --region ${{ env.AWS_REGION }} \
-            --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-            --query "containerImages[0].image" \
-            --output text)
-          echo "image=$IMAGE" >> $GITHUB_OUTPUT
+            # Generate Prisma client
+            npx prisma generate
 
-      - name: Create deployment
-        run: |
-          aws lightsail create-container-service-deployment \
-            --region ${{ env.AWS_REGION }} \
-            --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-            --containers '{
-              "watermark-backend": {
-                "image": "${{ steps.get-image.outputs.image }}",
-                "ports": {
-                  "4000": "HTTP"
-                },
-                "environment": {
-                  "NODE_ENV": "production",
-                  "PORT": "4000",
-                  "DATABASE_URL": "${{ secrets.DATABASE_URL }}",
-                  "FRONTEND_URL": "${{ secrets.FRONTEND_URL }}"
-                }
-              }
-            }' \
-            --public-endpoint '{
-              "containerName": "watermark-backend",
-              "containerPort": 4000,
-              "healthCheck": {
-                "path": "/health",
-                "intervalSeconds": 30,
-                "timeoutSeconds": 5,
-                "healthyThreshold": 2,
-                "unhealthyThreshold": 2
-              }
-            }'
+            # Run database migrations
+            npx prisma db push
 
-      - name: Deployment status
-        run: |
-          echo "Deployment initiated. Check Lightsail console for status."
-          echo "Service URL will be available at:"
-          aws lightsail get-container-services \
-            --region ${{ env.AWS_REGION }} \
-            --service-name ${{ env.LIGHTSAIL_SERVICE_NAME }} \
-            --query "containerServices[0].url" \
-            --output text
+            # Restart application with PM2
+            pm2 restart watermark-backend || pm2 start dist/index.js --name watermark-backend
+
+            # Save PM2 process list
+            pm2 save
+
+      - name: Deployment complete
+        run: echo "Backend deployed to Lightsail Instance"
