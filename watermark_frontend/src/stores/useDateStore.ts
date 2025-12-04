@@ -20,10 +20,11 @@ export const useDateStore = create<DateStore>((set) => ({
   position: { x: 0.02, y: 0.06 },
   font: {
     family: 'Pretendard',
-    size: 24,
+    size: 24, // 기본값 유지 (하위 호환성)
     color: '#FFFFFF',
   },
-  scale: 1,
+  // scale은 5글자(22.03) 기준 이미지 너비 대비 비율 (1.0 = 100% = 5글자가 이미지 너비를 채움)
+  scale: 0.15,
   opacity: 1,
 
   setText: (text: string) => {

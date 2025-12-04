@@ -29,7 +29,8 @@ export const useLogoStore = create<LogoStore>((set, get) => ({
   logo: null,
   // 위치를 비율(0~1)로 저장 - 이미지 크기에 비례하여 적용
   position: { x: 0.02, y: 0.02 },
-  scale: 1,
+  // scale은 이미지 너비 대비 비율 (0.3 = 30%, 1.0 = 100% = 이미지 너비와 동일)
+  scale: 0.3,
   opacity: 1,
 
   setLogo: async (file: File) => {

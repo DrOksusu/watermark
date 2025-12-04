@@ -61,7 +61,7 @@ export default function LogoSettings() {
 
             <div className="space-y-2">
               <div className="flex justify-between">
-                <Label className="text-xs">크기</Label>
+                <Label className="text-xs">크기 (이미지 너비 기준)</Label>
                 <span className="text-xs text-muted-foreground">
                   {Math.round(scale * 100)}%
                 </span>
@@ -69,10 +69,13 @@ export default function LogoSettings() {
               <Slider
                 value={[scale]}
                 onValueChange={([value]) => setScale(value)}
-                min={0.1}
-                max={2}
+                min={0.05}
+                max={1}
                 step={0.05}
               />
+              <p className="text-[10px] text-muted-foreground">
+                100% = 이미지 너비와 동일
+              </p>
             </div>
 
             <div className="space-y-2">

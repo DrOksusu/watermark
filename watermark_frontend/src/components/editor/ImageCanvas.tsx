@@ -81,7 +81,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
         const scaleX = containerWidth / mainImage.width;
         const scaleY = containerHeight / mainImage.height;
-        const newScale = Math.min(scaleX, scaleY, 1);
+        // 작은 이미지도 확대하여 캔버스 영역에 맞춤 (모든 이미지가 비슷한 크기로 표시)
+        const newScale = Math.min(scaleX, scaleY);
 
         setScale(newScale);
         setContainerSize({
@@ -384,17 +385,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             height={mainImage.height * scale}
           />
 
-          {/* Logo - 비율을 픽셀로 변환 (이미지 크기에 비례) */}
+          {/* Logo - 이미지 너비 기준으로 크기 설정 (logoScale=1.0 이면 이미지 너비와 동일) */}
           {logoImage && (() => {
-            // 템플릿 대비 현재 이미지 크기 비율 계산
-            const sizeRatio = templateImage ? mainImage.width / templateImage.width : 1;
+            // 로고 가로세로 비율 유지
+            const logoAspectRatio = logoImage.height / logoImage.width;
+            // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
+            const logoWidth = mainImage.width * logoScale * scale;
+            const logoHeight = logoWidth * logoAspectRatio;
             return (
               <KonvaImage
                 image={logoImage}
                 x={logoPosition.x * mainImage.width * scale}
                 y={logoPosition.y * mainImage.height * scale}
-                width={logoImage.width * logoScale * sizeRatio * scale}
-                height={logoImage.height * logoScale * sizeRatio * scale}
+                width={logoWidth}
+                height={logoHeight}
                 opacity={logoOpacity}
                 draggable={!selectedTool}
                 onDragEnd={handleLogoDragEnd}
@@ -402,24 +406,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             );
           })()}
 
-          {/* Date Text - 비율을 픽셀로 변환 (이미지 크기에 비례) */}
-          {dateText && (() => {
-            // 템플릿 대비 현재 이미지 크기 비율 계산
-            const sizeRatio = templateImage ? mainImage.width / templateImage.width : 1;
-            return (
-              <Text
-                text={dateText}
-                x={datePosition.x * mainImage.width * scale}
-                y={datePosition.y * mainImage.height * scale}
-                fontSize={font.size * dateScale * sizeRatio * scale}
-                fontFamily={font.family}
-                fill={font.color}
-                opacity={dateOpacity}
-                draggable={!selectedTool}
-                onDragEnd={handleDateDragEnd}
-              />
-            );
-          })()}
+          {/* Date Text - 5글자(22.03) 기준으로 폰트 크기 계산 (dateScale=1.0 이면 5글자가 이미지 너비를 채움) */}
+          {dateText && (
+            <Text
+              text={dateText}
+              x={datePosition.x * mainImage.width * scale}
+              y={datePosition.y * mainImage.height * scale}
+              fontSize={(mainImage.width * dateScale / 3) * scale}
+              fontFamily={font.family}
+              fill={font.color}
+              opacity={dateOpacity}
+              draggable={!selectedTool}
+              onDragEnd={handleDateDragEnd}
+            />
+          )}
 
           {/* Annotations */}
           {annotations.map(renderAnnotation)}

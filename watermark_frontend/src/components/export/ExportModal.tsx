@@ -65,8 +65,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
   const exportSingleImageWithLogo = async (
     imageFile: { id: string; url: string; name: string; width: number; height: number },
-    preloadedLogo: HTMLImageElement | null,
-    templateWidth: number
+    preloadedLogo: HTMLImageElement | null
   ): Promise<string> => {
     return new Promise((resolve) => {
       const canvas = document.createElement('canvas');
@@ -79,9 +78,6 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       canvas.width = imageFile.width;
       canvas.height = imageFile.height;
 
-      // 템플릿 대비 현재 이미지 크기 비율 계산
-      const sizeRatio = imageFile.width / templateWidth;
-
       const mainImg = new Image();
 
       mainImg.onerror = () => {
@@ -92,13 +88,16 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       mainImg.onload = () => {
         ctx.drawImage(mainImg, 0, 0, imageFile.width, imageFile.height);
 
-        // 미리 로드된 로고 이미지 사용 - 비율을 픽셀로 변환 (이미지 크기에 비례)
+        // 미리 로드된 로고 이미지 사용 - 이미지 너비 기준 (logoScale=1.0 이면 이미지 너비와 동일)
         if (preloadedLogo && logo) {
           ctx.globalAlpha = logoOpacity;
           const logoX = logoPosition.x * imageFile.width;
           const logoY = logoPosition.y * imageFile.height;
-          const logoW = logo.width * logoScale * sizeRatio;
-          const logoH = logo.height * logoScale * sizeRatio;
+          // 로고 가로세로 비율 유지
+          const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
+          // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
+          const logoW = imageFile.width * logoScale;
+          const logoH = logoW * logoAspectRatio;
           ctx.drawImage(
             preloadedLogo,
             logoX,
@@ -109,10 +108,10 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
           ctx.globalAlpha = 1;
         }
 
-        // 날짜 텍스트 그리기 - 비율을 픽셀로 변환 (이미지 크기에 비례)
+        // 날짜 텍스트 그리기 - 5글자(22.03) 기준으로 폰트 크기 계산 (dateScale=1.0 이면 5글자가 이미지 너비를 채움)
         if (dateText && font) {
           ctx.globalAlpha = dateOpacity;
-          const scaledFontSize = font.size * dateScale * sizeRatio;
+          const scaledFontSize = imageFile.width * dateScale / 3;
           ctx.font = buildFontString(scaledFontSize, font.family);
           ctx.fillStyle = font.color;
           const dateX = datePosition.x * imageFile.width;
@@ -222,8 +221,6 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
     try {
       // 로고 이미지를 미리 한 번만 로드
       const preloadedLogo = await loadLogoImage();
-      // 첫 번째 이미지(템플릿)의 너비를 기준으로 사용
-      const templateWidth = images[0].width;
 
       // ZIP 파일 생성
       const zip = new JSZip();
@@ -234,7 +231,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         setCurrentExporting(image.name);
         setProgress(Math.round(((i + 1) / images.length) * 100));
 
-        const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo, templateWidth);
+        const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo);
         if (dataUrl) {
           // 원본 파일명에서 확장자 제거
           const originalName = image.name.replace(/\.[^/.]+$/, '');

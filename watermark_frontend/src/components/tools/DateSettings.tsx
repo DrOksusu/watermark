@@ -71,21 +71,7 @@ export default function DateSettings() {
 
         <div className="space-y-2">
           <div className="flex justify-between">
-            <Label className="text-xs">글자 크기</Label>
-            <span className="text-xs text-muted-foreground">{font.size}px</span>
-          </div>
-          <Slider
-            value={[font.size]}
-            onValueChange={([value]) => setFont({ size: value })}
-            min={12}
-            max={72}
-            step={1}
-          />
-        </div>
-
-        <div className="space-y-2">
-          <div className="flex justify-between">
-            <Label className="text-xs">크기</Label>
+            <Label className="text-xs">크기 (이미지 너비 기준)</Label>
             <span className="text-xs text-muted-foreground">
               {Math.round(scale * 100)}%
             </span>
@@ -93,10 +79,13 @@ export default function DateSettings() {
           <Slider
             value={[scale]}
             onValueChange={([value]) => setScale(value)}
-            min={0.1}
-            max={3}
-            step={0.05}
+            min={0.01}
+            max={1}
+            step={0.01}
           />
+          <p className="text-[10px] text-muted-foreground">
+            100% = 5글자(22.03)가 이미지 너비를 채움
+          </p>
         </div>
 
         <div className="space-y-2">
