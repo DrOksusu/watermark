@@ -5,6 +5,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import ImageUploader from '@/components/tools/ImageUploader';
 import ImageList from '@/components/tools/ImageList';
 import LogoSettings from '@/components/tools/LogoSettings';
+import LogoLibrary from '@/components/tools/LogoLibrary';
 import DateSettings from '@/components/tools/DateSettings';
 import PresetSettings from '@/components/tools/PresetSettings';
 import AnnotationTools from '@/components/tools/AnnotationTools';
@@ -27,6 +28,7 @@ export default function LeftPanel() {
 
           <TabsContent value="watermark" className="mt-0 p-4 space-y-4">
             <PresetSettings />
+            <LogoLibrary />
             <LogoSettings />
             <DateSettings />
           </TabsContent>
