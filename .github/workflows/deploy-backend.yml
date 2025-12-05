@@ -59,25 +59,33 @@ jobs:
             MAX_FILE_SIZE=10485760
             EOF
 
-            # Install dependencies
-            npm ci --production
+            # Create uploads directories on host (for volume mount)
+            mkdir -p ~/watermark-data/uploads/images ~/watermark-data/uploads/logos ~/watermark-data/uploads/processed
 
-            # Generate Prisma client
-            npx prisma generate
+            # Stop and remove existing container
+            docker stop watermark-api 2>/dev/null || true
+            docker rm watermark-api 2>/dev/null || true
 
-            # Build TypeScript
-            npm run build
+            # Build Docker image
+            docker build -t watermark-api .
 
-            # Run database migrations
-            npx prisma db push --accept-data-loss
+            # Run Docker container
+            docker run -d \
+              --name watermark-api \
+              --restart unless-stopped \
+              -p 4000:4000 \
+              -v ~/watermark-data/uploads:/app/uploads \
+              --env-file .env \
+              watermark-api
 
-            # Create uploads directories
-            mkdir -p uploads/images uploads/logos uploads/processed
+            # Wait for container to start
+            sleep 5
 
-            # Restart application with PM2
-            pm2 delete watermark-backend 2>/dev/null || true
-            pm2 start dist/index.js --name watermark-backend
-            pm2 save
+            # Health check
+            curl -f http://localhost:4000/health || echo "Health check failed"
+
+            # Show container status
+            docker ps | grep watermark-api
 
       - name: Deployment complete
-        run: echo "Backend deployed successfully!"
+        run: echo "Backend deployed successfully with Docker!"
