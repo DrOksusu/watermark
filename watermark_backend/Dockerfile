@@ -4,13 +4,13 @@ FROM node:20-alpine AS builder
 WORKDIR /app
 
 # Install dependencies for native modules (sharp)
-RUN apk add --no-cache python3 make g++
+RUN apk add --no-cache python3 make g++ vips-dev
 
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install dependencies
+# Install all dependencies (including devDependencies for building)
 RUN npm ci
 
 # Generate Prisma client
@@ -22,20 +22,23 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
+# Prune dev dependencies after build
+RUN npm prune --production
+
 # Production stage
 FROM node:20-alpine AS production
 
 WORKDIR /app
 
-# Install dependencies for sharp
-RUN apk add --no-cache vips-dev
+# Install runtime dependencies for sharp (vips)
+RUN apk add --no-cache vips
 
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Install production dependencies only
-RUN npm ci --only=production
+# Copy node_modules from builder (already pruned to production only)
+COPY --from=builder /app/node_modules ./node_modules
 
 # Generate Prisma client for production
 RUN npx prisma generate
