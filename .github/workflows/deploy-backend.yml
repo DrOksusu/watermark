@@ -1,4 +1,4 @@
-name: Deploy Backend to AWS Lightsail Instance
+name: Build and Deploy Backend to Lightsail
 
 on:
   push:
@@ -6,86 +6,96 @@ on:
       - main
     paths:
       - 'watermark_backend/**'
+      - '.github/workflows/deploy-backend.yml'
   workflow_dispatch:
 
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REPOSITORY: watermark-api
+
 jobs:
-  deploy:
+  build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Deploy to Lightsail Instance
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Login to Amazon ECR
+        id: login-ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Build, tag, and push image to Amazon ECR
+        id: build-image
+        env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
+          IMAGE_TAG: ${{ github.sha }}
+        run: |
+          cd watermark_backend
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG .
+          docker build -t $ECR_REGISTRY/$ECR_REPOSITORY:latest .
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG
+          docker push $ECR_REGISTRY/$ECR_REPOSITORY:latest
+          echo "image=$ECR_REGISTRY/$ECR_REPOSITORY:$IMAGE_TAG" >> $GITHUB_OUTPUT
+          echo "registry=$ECR_REGISTRY" >> $GITHUB_OUTPUT
+
+      - name: Deploy to Lightsail
         uses: appleboy/ssh-action@v1.0.3
         env:
+          ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           FRONTEND_URL: ${{ secrets.FRONTEND_URL }}
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USERNAME }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET,AWS_REGION
+          envs: ECR_REGISTRY,DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET
           script: |
-            # Create app directory
-            mkdir -p ~/watermark-backend
-            cd ~/watermark-backend
+            # ECR 로그인
+            aws ecr get-login-password --region ap-northeast-2 | docker login --username AWS --password-stdin $ECR_REGISTRY
 
-            # Clone or pull latest code
-            if [ -d ".git" ]; then
-              git pull origin main
-            else
-              git clone https://github.com/DrOksusu/watermark.git .
-            fi
-
-            # Navigate to backend folder
-            cd watermark_backend
-
-            # Create .env file from GitHub secrets
-            cat > .env << EOF
-            PORT=4000
-            NODE_ENV=production
-            DATABASE_URL="${DATABASE_URL}"
-            FRONTEND_URL="${FRONTEND_URL}"
-            AWS_ACCESS_KEY_ID="${AWS_ACCESS_KEY_ID}"
-            AWS_SECRET_ACCESS_KEY="${AWS_SECRET_ACCESS_KEY}"
-            AWS_S3_BUCKET="${AWS_S3_BUCKET}"
-            AWS_REGION="${AWS_REGION}"
-            UPLOAD_DIR="./uploads"
-            MAX_FILE_SIZE=10485760
-            EOF
+            # 최신 이미지 pull
+            docker pull $ECR_REGISTRY/watermark-api:latest
 
             # Create uploads directories on host (for volume mount)
             mkdir -p ~/watermark-data/uploads/images ~/watermark-data/uploads/logos ~/watermark-data/uploads/processed
 
-            # Stop and remove existing container
+            # 기존 컨테이너 중지 및 삭제
             docker stop watermark-api 2>/dev/null || true
             docker rm watermark-api 2>/dev/null || true
 
-            # Build Docker image
-            docker build -t watermark-api .
-
-            # Run Docker container
+            # 새 컨테이너 실행
             docker run -d \
               --name watermark-api \
               --restart unless-stopped \
               -p 4000:4000 \
               -v ~/watermark-data/uploads:/app/uploads \
-              --env-file .env \
-              watermark-api
+              -e NODE_ENV=production \
+              -e PORT=4000 \
+              -e "DATABASE_URL=${DATABASE_URL}" \
+              -e "FRONTEND_URL=${FRONTEND_URL}" \
+              -e "AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}" \
+              -e "AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}" \
+              -e "AWS_S3_BUCKET=${AWS_S3_BUCKET}" \
+              -e "AWS_REGION=ap-northeast-2" \
+              -e "UPLOAD_DIR=./uploads" \
+              -e "MAX_FILE_SIZE=10485760" \
+              $ECR_REGISTRY/watermark-api:latest
 
-            # Wait for container to start
+            # 상태 확인
             sleep 5
-
-            # Health check
-            curl -f http://localhost:4000/health || echo "Health check failed"
-
-            # Show container status
             docker ps | grep watermark-api
+            curl -s http://localhost:4000/health || echo "Health check pending..."
 
       - name: Deployment complete
-        run: echo "Backend deployed successfully with Docker!"
+        run: echo "Backend deployed successfully via ECR!"
