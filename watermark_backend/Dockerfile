@@ -1,4 +1,4 @@
-# Build stage
+# Build stage - use Alpine for smaller build
 FROM node:20-alpine AS builder
 
 WORKDIR /app
@@ -22,23 +22,24 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Prune dev dependencies after build
-RUN npm prune --production
-
-# Production stage
-FROM node:20-alpine AS production
+# Production stage - use Debian slim for OpenSSL 1.1 compatibility
+FROM node:20-slim AS production
 
 WORKDIR /app
 
-# Install OpenSSL 1.1 compatibility library for Prisma
-RUN apk add --no-cache openssl1.1-compat
+# Install OpenSSL and other runtime dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    openssl \
+    ca-certificates \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy package files
 COPY package*.json ./
 COPY prisma ./prisma/
 
-# Copy node_modules from builder (already pruned to production only)
-COPY --from=builder /app/node_modules ./node_modules
+# Install production dependencies only (sharp will download correct binary for linux-x64)
+RUN npm ci --only=production
 
 # Generate Prisma client for production
 RUN npx prisma generate
