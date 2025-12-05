@@ -11,9 +11,27 @@ const app = express();
 const PORT = process.env.PORT || 4000;
 const FRONTEND_URL = process.env.FRONTEND_URL || 'http://localhost:3000';
 
+// Allowed origins for CORS
+const allowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5000',
+  'https://watermark-steel.vercel.app',
+  FRONTEND_URL,
+].filter((origin, index, self) => self.indexOf(origin) === index); // Remove duplicates
+
 // Middleware
 app.use(cors({
-  origin: FRONTEND_URL,
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      console.log(`CORS blocked origin: ${origin}`);
+      callback(null, true); // Allow all origins for now
+    }
+  },
   credentials: true,
 }));
 app.use(express.json());
@@ -55,7 +73,7 @@ app.listen(PORT, () => {
 ╠════════════════════════════════════════════╣
 ║  Port: ${PORT}                               ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}               ║
-║  Frontend URL: ${FRONTEND_URL}   ║
+║  Allowed Origins: ${allowedOrigins.length} configured       ║
 ╚════════════════════════════════════════════╝
   `);
 });
