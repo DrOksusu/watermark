@@ -22,8 +22,8 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Production stage - use Debian slim for OpenSSL 1.1 compatibility
-FROM node:18-slim AS production
+# Production stage - use Debian buster for better compatibility
+FROM node:18-buster AS production
 
 WORKDIR /app
 
