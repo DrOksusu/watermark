@@ -8,6 +8,7 @@ interface PresetStore {
   isLoading: boolean;
   error: string | null;
   selectedPresetId: string | null;
+  isManuallyCleared: boolean; // 사용자가 의도적으로 프리셋을 해제했는지
 
   // 프리셋 목록 관리
   fetchPresets: () => Promise<void>;
@@ -24,6 +25,9 @@ interface PresetStore {
   // 선택된 프리셋 설정
   setSelectedPreset: (presetId: string | null) => void;
 
+  // 기본 설정으로 되돌리기
+  resetToDefaults: () => void;
+
   // 에러 초기화
   clearError: () => void;
 }
@@ -31,6 +35,7 @@ interface PresetStore {
 export const usePresetStore = create<PresetStore>((set, get) => ({
   presets: [],
   isLoading: false,
+  isManuallyCleared: false,
   error: null,
   selectedPresetId: null,
 
@@ -101,7 +106,7 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
         const response = await settingsService.getById(presetId);
         if (response.success && response.data) {
           applyPresetToStores(response.data);
-          set({ isLoading: false, selectedPresetId: presetId });
+          set({ isLoading: false, selectedPresetId: presetId, isManuallyCleared: false });
           return true;
         } else {
           set({ error: response.error || '프리셋을 찾을 수 없습니다', isLoading: false });
@@ -114,7 +119,7 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
     }
 
     applyPresetToStores(preset);
-    set({ selectedPresetId: presetId });
+    set({ selectedPresetId: presetId, isManuallyCleared: false });
     return true;
   },
 
@@ -142,6 +147,29 @@ export const usePresetStore = create<PresetStore>((set, get) => ({
 
   setSelectedPreset: (presetId: string | null) => {
     set({ selectedPresetId: presetId });
+  },
+
+  resetToDefaults: () => {
+    const logoStore = useLogoStore.getState();
+    const dateStore = useDateStore.getState();
+
+    // 로고 설정 기본값으로
+    logoStore.setPosition({ x: 0.02, y: 0.02 });
+    logoStore.setScale(0.3);
+    logoStore.setOpacity(1);
+
+    // 날짜 설정 기본값으로
+    dateStore.setPosition({ x: 0.02, y: 0.06 });
+    dateStore.setFont({
+      family: 'Pretendard',
+      size: 24,
+      color: '#FFFFFF'
+    });
+    dateStore.setScale(0.15);
+    dateStore.setOpacity(1);
+
+    // 선택 해제 및 수동 해제 플래그 설정
+    set({ selectedPresetId: null, isManuallyCleared: true });
   },
 
   clearError: () => {

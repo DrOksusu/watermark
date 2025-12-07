@@ -26,7 +26,7 @@ import { useLogoStore } from '@/stores/useLogoStore';
 import { useDateStore } from '@/stores/useDateStore';
 import { useAnnotationStore } from '@/stores/useAnnotationStore';
 import { useExportStore } from '@/stores/useExportStore';
-import { Download, Loader2, FileArchive } from 'lucide-react';
+import { Download, Loader2, FileArchive, Image as ImageIcon } from 'lucide-react';
 
 interface ExportModalProps {
   open: boolean;
@@ -221,10 +221,34 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
     try {
       // 로고 이미지를 미리 한 번만 로드
       const preloadedLogo = await loadLogoImage();
-
-      // ZIP 파일 생성
-      const zip = new JSZip();
       const extension = settings.format === 'png' ? 'png' : 'jpg';
+
+      // 이미지가 1개일 때는 단일 파일로 다운로드
+      if (images.length === 1) {
+        const image = images[0];
+        setCurrentExporting(image.name);
+        setProgress(50);
+
+        const dataUrl = await exportSingleImageWithLogo(image, preloadedLogo);
+        if (dataUrl) {
+          const originalName = image.name.replace(/\.[^/.]+$/, '');
+          const filename = originalName + settings.filenamePrefix + '.' + extension;
+
+          const link = document.createElement('a');
+          link.href = dataUrl;
+          link.download = filename;
+          document.body.appendChild(link);
+          link.click();
+          document.body.removeChild(link);
+        }
+
+        setProgress(100);
+        onOpenChange(false);
+        return;
+      }
+
+      // 이미지가 2개 이상일 때는 ZIP으로 다운로드
+      const zip = new JSZip();
 
       for (let i = 0; i < images.length; i++) {
         const image = images[i];
@@ -322,13 +346,29 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
           <div className="rounded-lg bg-muted p-3 space-y-1">
             <div className="flex items-center gap-2">
-              <FileArchive className="h-4 w-4 text-muted-foreground" />
+              {images.length === 1 ? (
+                <ImageIcon className="h-4 w-4 text-muted-foreground" />
+              ) : (
+                <FileArchive className="h-4 w-4 text-muted-foreground" />
+              )}
               <p className="text-sm">
-                <span className="font-medium">{images.length}개</span>의 이미지가 ZIP 파일로 저장됩니다
+                {images.length === 1 ? (
+                  <>
+                    <span className="font-medium">1개</span>의 이미지가 {settings.format.toUpperCase()} 파일로 저장됩니다
+                  </>
+                ) : (
+                  <>
+                    <span className="font-medium">{images.length}개</span>의 이미지가 ZIP 파일로 저장됩니다
+                  </>
+                )}
               </p>
             </div>
             <p className="text-xs text-muted-foreground">
-              파일명: watermark_images.zip
+              {images.length === 1 ? (
+                <>파일명: {images[0]?.name.replace(/\.[^/.]+$/, '')}{settings.filenamePrefix}.{settings.format}</>
+              ) : (
+                <>파일명: watermark_images.zip</>
+              )}
             </p>
           </div>
 
@@ -358,6 +398,11 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
                 저장 중...
+              </>
+            ) : images.length === 1 ? (
+              <>
+                <Download className="h-4 w-4 mr-2" />
+                이미지 저장
               </>
             ) : (
               <>

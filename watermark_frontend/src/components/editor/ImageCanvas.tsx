@@ -56,20 +56,27 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     }
   }, [selectedImage]);
 
-  // Load logo image - selectedImage도 의존성에 추가하여 이미지 전환 시 로고 유지
+  // Load logo image - logo가 변경될 때 로드
+  const logoUrl = logo?.url || null;
   useEffect(() => {
-    if (logo) {
+    if (logoUrl) {
+      console.log('Loading logo image from URL:', logoUrl);
       const img = new window.Image();
-      img.onload = () => setLogoImage(img);
-      img.onerror = () => {
-        console.error('Failed to load logo image');
+      img.crossOrigin = 'anonymous';
+      img.onload = () => {
+        console.log('Logo image loaded successfully:', img.width, 'x', img.height);
+        setLogoImage(img);
+      };
+      img.onerror = (e) => {
+        console.error('Failed to load logo image:', e);
         setLogoImage(null);
       };
-      img.src = logo.url;
+      img.src = logoUrl;
     } else {
+      console.log('No logo to load, clearing logo image');
       setLogoImage(null);
     }
-  }, [logo, selectedImage]);
+  }, [logoUrl]);
 
   // Calculate scale and container size
   useEffect(() => {
@@ -386,17 +393,33 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           />
 
           {/* Logo - 이미지 너비 기준으로 크기 설정 (logoScale=1.0 이면 이미지 너비와 동일) */}
-          {logoImage && (() => {
+          {logoImage && mainImage && (() => {
             // 로고 가로세로 비율 유지
             const logoAspectRatio = logoImage.height / logoImage.width;
             // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
             const logoWidth = mainImage.width * logoScale * scale;
             const logoHeight = logoWidth * logoAspectRatio;
+            const logoX = logoPosition.x * mainImage.width * scale;
+            const logoY = logoPosition.y * mainImage.height * scale;
+
+            console.log('Rendering logo:', {
+              logoImage: !!logoImage,
+              logoWidth,
+              logoHeight,
+              logoX,
+              logoY,
+              logoOpacity,
+              logoScale,
+              mainImageWidth: mainImage.width,
+              scale,
+              logoPosition, // 원본 위치 값 확인
+            });
+
             return (
               <KonvaImage
                 image={logoImage}
-                x={logoPosition.x * mainImage.width * scale}
-                y={logoPosition.y * mainImage.height * scale}
+                x={logoX}
+                y={logoY}
                 width={logoWidth}
                 height={logoHeight}
                 opacity={logoOpacity}

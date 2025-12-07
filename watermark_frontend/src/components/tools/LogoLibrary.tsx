@@ -16,16 +16,21 @@ import {
   DialogFooter,
 } from '@/components/ui/dialog';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
   FolderOpen,
   Upload,
   Trash2,
   Loader2,
-  Check,
   AlertCircle,
-  Image as ImageIcon,
   Plus,
+  XCircle,
 } from 'lucide-react';
-import { cn } from '@/lib/utils';
 
 export default function LogoLibrary() {
   const {
@@ -36,13 +41,13 @@ export default function LogoLibrary() {
     fetchLogos,
     uploadLogo,
     selectLogo,
+    clearLogoSelection,
     deleteLogo,
     clearError,
   } = useLogoLibraryStore();
 
   const [uploadDialogOpen, setUploadDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [logoToDelete, setLogoToDelete] = useState<string | null>(null);
   const [logoName, setLogoName] = useState('');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [uploadPreview, setUploadPreview] = useState<string | null>(null);
@@ -51,6 +56,15 @@ export default function LogoLibrary() {
   useEffect(() => {
     fetchLogos();
   }, [fetchLogos]);
+
+  // 로고 목록 로드 후 활성 로고가 있으면 자동으로 로고 설정에 적용
+  useEffect(() => {
+    const activeLogo = logos.find(l => l.isActive);
+    if (activeLogo && !selectedLogoId) {
+      // 활성 로고를 로고 설정에 자동 적용
+      selectLogo(activeLogo.id);
+    }
+  }, [logos, selectedLogoId, selectLogo]);
 
   // 에러 발생 시 3초 후 자동 제거
   useEffect(() => {
@@ -77,6 +91,8 @@ export default function LogoLibrary() {
       'image/jpeg': ['.jpg', '.jpeg'],
     },
     multiple: false,
+    noClick: true,
+    noKeyboard: true,
   });
 
   const handleUpload = async () => {
@@ -85,6 +101,8 @@ export default function LogoLibrary() {
     const success = await uploadLogo(uploadFile, logoName.trim() || uploadFile.name);
     if (success) {
       closeUploadDialog();
+      // 업로드 후 목록 새로고침
+      await fetchLogos();
     }
   };
 
@@ -99,27 +117,54 @@ export default function LogoLibrary() {
   };
 
   const handleSelectLogo = async (logoId: string) => {
-    await selectLogo(logoId);
-  };
-
-  const handleDeleteLogo = async () => {
-    if (!logoToDelete) return;
-
-    const success = await deleteLogo(logoToDelete);
-    if (success) {
-      setDeleteDialogOpen(false);
-      setLogoToDelete(null);
+    console.log('handleSelectLogo called with:', logoId);
+    if (logoId === 'none') {
+      return;
+    }
+    if (logoId === 'clear') {
+      clearLogoSelection();
+      return;
+    }
+    try {
+      const result = await selectLogo(logoId);
+      console.log('selectLogo result:', result);
+    } catch (err) {
+      console.error('selectLogo error:', err);
     }
   };
 
-  const openDeleteDialog = (e: React.MouseEvent, logoId: string) => {
-    e.stopPropagation();
-    setLogoToDelete(logoId);
-    setDeleteDialogOpen(true);
+  const handleDeleteLogo = async () => {
+    const logoIdToDelete = selectedLogoId || logos.find(l => l.isActive)?.id;
+    if (!logoIdToDelete) return;
+
+    const success = await deleteLogo(logoIdToDelete);
+    if (success) {
+      setDeleteDialogOpen(false);
+    }
   };
 
+  const openUploadDialog = () => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = 'image/png,image/jpeg,image/jpg';
+    input.onchange = (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        setUploadFile(file);
+        setUploadPreview(URL.createObjectURL(file));
+        setLogoName(file.name.replace(/\.[^/.]+$/, ''));
+        setUploadDialogOpen(true);
+      }
+    };
+    input.click();
+  };
+
+  // 현재 선택된 로고 또는 활성화된 로고 찾기
+  const currentLogoId = selectedLogoId || logos.find(l => l.isActive)?.id || '';
+  const currentLogo = logos.find(l => l.id === currentLogoId);
+
   return (
-    <Card>
+    <Card {...getRootProps()}>
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <FolderOpen className="h-4 w-4" />
@@ -127,6 +172,8 @@ export default function LogoLibrary() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-3">
+        <input {...getInputProps()} />
+
         {/* 에러 메시지 */}
         {error && (
           <div className="flex items-center gap-2 text-xs text-destructive bg-destructive/10 p-2 rounded">
@@ -135,65 +182,98 @@ export default function LogoLibrary() {
           </div>
         )}
 
-        {/* 로고 그리드 */}
-        <div className="grid grid-cols-4 gap-2">
-          {logos.map((logo) => (
-            <div
-              key={logo.id}
-              onClick={() => handleSelectLogo(logo.id)}
-              className={cn(
-                'relative aspect-square rounded-md border-2 cursor-pointer transition-all overflow-hidden group',
-                selectedLogoId === logo.id || logo.isActive
-                  ? 'border-primary ring-2 ring-primary/20'
-                  : 'border-muted hover:border-primary/50'
-              )}
+        {/* 드롭다운 선택 */}
+        <div className="space-y-2">
+          <Label className="text-xs">저장된 로고 선택</Label>
+          <div className="flex gap-2">
+            <Select
+              value={currentLogoId}
+              onValueChange={handleSelectLogo}
+              disabled={isLoading}
             >
-              <img
-                src={logoService.getLogoUrl(logo)}
-                alt={logo.name}
-                className="w-full h-full object-contain p-1"
-              />
+              <SelectTrigger className="flex-1">
+                <SelectValue placeholder="로고를 선택하세요" />
+              </SelectTrigger>
+              <SelectContent>
+                {logos.length === 0 ? (
+                  <SelectItem value="none" disabled>
+                    저장된 로고가 없습니다
+                  </SelectItem>
+                ) : (
+                  <>
+                    <SelectItem value="clear">
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <XCircle className="w-4 h-4" />
+                        <span>로고 선택 없음</span>
+                      </div>
+                    </SelectItem>
+                    {logos.map((logo) => (
+                      <SelectItem key={logo.id} value={logo.id}>
+                        <div className="flex items-center gap-2">
+                          <img
+                            src={logoService.getLogoUrl(logo)}
+                            alt={logo.name}
+                            className="w-5 h-5 object-contain"
+                            onError={(e) => {
+                              (e.target as HTMLImageElement).style.display = 'none';
+                            }}
+                          />
+                          <span>{logo.name}</span>
+                        </div>
+                      </SelectItem>
+                    ))}
+                  </>
+                )}
+              </SelectContent>
+            </Select>
 
-              {/* 선택됨 표시 */}
-              {(selectedLogoId === logo.id || logo.isActive) && (
-                <div className="absolute top-0.5 right-0.5 bg-primary rounded-full p-0.5">
-                  <Check className="h-2.5 w-2.5 text-primary-foreground" />
-                </div>
-              )}
-
-              {/* 삭제 버튼 (호버 시 표시) */}
-              <button
-                onClick={(e) => openDeleteDialog(e, logo.id)}
-                className="absolute bottom-0.5 right-0.5 bg-destructive/80 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
+            {/* 삭제 버튼 */}
+            {currentLogoId && (
+              <Button
+                variant="destructive"
+                size="icon"
+                onClick={() => setDeleteDialogOpen(true)}
+                disabled={isLoading}
+                title="선택한 로고 삭제"
               >
-                <Trash2 className="h-2.5 w-2.5 text-white" />
-              </button>
-
-              {/* 로고 이름 툴팁 */}
-              <div className="absolute inset-x-0 bottom-0 bg-black/60 text-white text-[8px] text-center py-0.5 opacity-0 group-hover:opacity-100 transition-opacity truncate px-1">
-                {logo.name}
-              </div>
-            </div>
-          ))}
-
-          {/* 업로드 버튼 */}
-          <div
-            {...getRootProps()}
-            className={cn(
-              'aspect-square rounded-md border-2 border-dashed cursor-pointer transition-all flex items-center justify-center',
-              isDragActive
-                ? 'border-primary bg-primary/5'
-                : 'border-muted-foreground/25 hover:border-primary/50'
+                <Trash2 className="h-4 w-4" />
+              </Button>
             )}
-          >
-            <input {...getInputProps()} />
-            <Plus className="h-5 w-5 text-muted-foreground" />
           </div>
         </div>
 
-        {/* 로고 개수 표시 */}
-        <p className="text-[10px] text-muted-foreground text-center">
-          {logos.length}개의 로고 저장됨 • 클릭하여 선택
+        {/* 선택된 로고 미리보기 */}
+        {currentLogo && (
+          <div className="flex justify-center p-3 bg-muted/30 rounded-lg border">
+            <img
+              src={logoService.getLogoUrl(currentLogo)}
+              alt={currentLogo.name}
+              className="max-h-16 object-contain"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64"><rect fill="%23ddd" width="64" height="64"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-size="10">No Image</text></svg>';
+              }}
+            />
+          </div>
+        )}
+
+        {/* 새 로고 업로드 버튼 */}
+        <Button
+          variant="outline"
+          className="w-full"
+          onClick={openUploadDialog}
+          disabled={isLoading}
+        >
+          {isLoading ? (
+            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+          ) : (
+            <Plus className="h-4 w-4 mr-2" />
+          )}
+          새 로고 추가
+        </Button>
+
+        {/* 드래그 안내 */}
+        <p className={`text-[10px] text-center transition-colors ${isDragActive ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+          {isDragActive ? '여기에 로고를 드롭하세요!' : `${logos.length}개의 로고 저장됨 • 이미지를 드래그하여 추가`}
         </p>
 
         {/* 업로드 다이얼로그 */}
@@ -260,7 +340,7 @@ export default function LogoLibrary() {
 
             <div className="py-4">
               <p className="text-sm">
-                정말로 이 로고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
+                &apos;{currentLogo?.name}&apos; 로고를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다.
               </p>
             </div>
 

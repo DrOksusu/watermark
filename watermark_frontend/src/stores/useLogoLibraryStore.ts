@@ -17,6 +17,9 @@ interface LogoLibraryStore {
   // 로고 선택 (캔버스에 적용)
   selectLogo: (logoId: string) => Promise<boolean>;
 
+  // 로고 선택 해제
+  clearLogoSelection: () => void;
+
   // 로고 삭제
   deleteLogo: (logoId: string) => Promise<boolean>;
 
@@ -83,11 +86,10 @@ export const useLogoLibraryStore = create<LogoLibraryStore>((set, get) => ({
       }
 
       // useLogoStore에 로고 설정
-      const logoStore = useLogoStore.getState();
       const logoUrl = logoService.getLogoUrl(logo);
 
       // 이미지 로드하여 로고 설정
-      await loadLogoToStore(logoUrl, logo.name, logo.width, logo.height);
+      await loadLogoToStore(logoUrl, logo.name);
 
       // 선택된 로고 업데이트
       set({ selectedLogoId: logoId });
@@ -106,6 +108,20 @@ export const useLogoLibraryStore = create<LogoLibraryStore>((set, get) => ({
       set({ error: '로고 선택에 실패했습니다' });
       return false;
     }
+  },
+
+  clearLogoSelection: () => {
+    const { logos } = get();
+    const logoStore = useLogoStore.getState();
+
+    // 로고 설정에서 제거
+    logoStore.removeLogo();
+
+    // 선택 해제 및 isActive 상태 초기화
+    set({
+      selectedLogoId: null,
+      logos: logos.map(l => ({ ...l, isActive: false })),
+    });
   },
 
   deleteLogo: async (logoId: string) => {
@@ -143,16 +159,33 @@ export const useLogoLibraryStore = create<LogoLibraryStore>((set, get) => ({
 }));
 
 // 로고 URL을 로드하여 useLogoStore에 설정하는 헬퍼 함수
-async function loadLogoToStore(url: string, name: string, width: number, height: number): Promise<void> {
-  return new Promise((resolve, reject) => {
-    // URL에서 이미지를 fetch하여 File 객체로 변환
-    fetch(url)
-      .then(response => response.blob())
-      .then(blob => {
-        const file = new File([blob], name, { type: blob.type });
-        const logoStore = useLogoStore.getState();
-        logoStore.setLogo(file).then(resolve).catch(reject);
-      })
-      .catch(reject);
-  });
+async function loadLogoToStore(url: string, name: string): Promise<void> {
+  try {
+    console.log('Loading logo from URL:', url);
+
+    const response = await fetch(url, {
+      mode: 'cors',
+      credentials: 'omit',
+    });
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch logo: ${response.status} ${response.statusText}`);
+    }
+
+    const blob = await response.blob();
+    console.log('Logo blob loaded:', blob.type, blob.size);
+
+    // 파일 확장자 추출
+    const ext = blob.type.split('/')[1] || 'png';
+    const fileName = name.includes('.') ? name : `${name}.${ext}`;
+
+    const file = new File([blob], fileName, { type: blob.type });
+    const logoStore = useLogoStore.getState();
+    await logoStore.setLogo(file);
+
+    console.log('Logo successfully loaded to store');
+  } catch (error) {
+    console.error('Error loading logo to store:', error);
+    throw error;
+  }
 }

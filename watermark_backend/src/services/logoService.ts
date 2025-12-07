@@ -15,7 +15,7 @@ export interface LogoData {
 }
 
 export const logoService = {
-  async createLogo(file: Express.Multer.File): Promise<LogoData> {
+  async createLogo(file: Express.Multer.File, customName?: string): Promise<LogoData> {
     const metadata = await sharp(file.path).metadata();
 
     // Deactivate all existing logos
@@ -24,9 +24,12 @@ export const logoService = {
       data: { isActive: false },
     });
 
+    // 사용자 지정 이름이 있으면 사용, 없으면 파일명 사용
+    const logoName = customName?.trim() || file.originalname;
+
     const logo = await prisma.logo.create({
       data: {
-        name: file.originalname,
+        name: logoName,
         filename: file.filename,
         url: `/uploads/logos/${file.filename}`,
         width: metadata.width || 0,

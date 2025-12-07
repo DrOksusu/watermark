@@ -3,7 +3,7 @@ import path from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import fs from 'fs';
 
-const UPLOAD_DIR = process.env.UPLOAD_DIR || './uploads';
+const UPLOAD_DIR = process.env.UPLOAD_DIR || path.join(__dirname, '../../uploads');
 const MAX_FILE_SIZE = parseInt(process.env.MAX_FILE_SIZE || '10485760', 10); // 10MB
 
 // Ensure upload directories exist

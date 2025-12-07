@@ -20,7 +20,7 @@ import {
   DialogTitle,
   DialogFooter,
 } from '@/components/ui/dialog';
-import { Save, FolderOpen, Trash2, Loader2, Settings2, AlertCircle } from 'lucide-react';
+import { Save, FolderOpen, Trash2, Loader2, Settings2, AlertCircle, RotateCcw } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 export default function PresetSettings() {
@@ -29,10 +29,12 @@ export default function PresetSettings() {
     isLoading,
     error,
     selectedPresetId,
+    isManuallyCleared,
     fetchPresets,
     saveCurrentAsPreset,
     applyPreset,
     deletePreset,
+    resetToDefaults,
     clearError,
   } = usePresetStore();
 
@@ -45,6 +47,15 @@ export default function PresetSettings() {
   useEffect(() => {
     fetchPresets();
   }, [fetchPresets]);
+
+  // 프리셋 로드 후 첫 번째 프리셋 자동 적용 (프리셋이 있고 아직 선택된 것이 없고, 수동 해제가 아닐 때)
+  const presetsLength = presets.length;
+  const firstPresetId = presets[0]?.id;
+  useEffect(() => {
+    if (presetsLength > 0 && !selectedPresetId && !isManuallyCleared && firstPresetId) {
+      applyPreset(firstPresetId);
+    }
+  }, [presetsLength, selectedPresetId, isManuallyCleared, firstPresetId, applyPreset]);
 
   // 에러 발생 시 3초 후 자동 제거
   useEffect(() => {
@@ -65,6 +76,10 @@ export default function PresetSettings() {
   };
 
   const handleApplyPreset = async (presetId: string) => {
+    if (presetId === 'reset') {
+      resetToDefaults();
+      return;
+    }
     if (presetId === 'none') return;
     await applyPreset(presetId);
   };
@@ -117,6 +132,12 @@ export default function PresetSettings() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">프리셋 선택...</SelectItem>
+                <SelectItem value="reset">
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <RotateCcw className="h-3 w-3" />
+                    <span>설정 없음 (기본값)</span>
+                  </div>
+                </SelectItem>
                 {presets.map((preset) => (
                   <SelectItem key={preset.id} value={preset.id}>
                     {preset.name}

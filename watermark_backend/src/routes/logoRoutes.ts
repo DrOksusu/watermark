@@ -9,6 +9,7 @@ const router = Router();
 router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Response) => {
   try {
     const file = req.file;
+    const { name } = req.body; // 사용자 지정 이름
 
     if (!file) {
       const response: ApiResponse = {
@@ -19,7 +20,7 @@ router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Resp
       return;
     }
 
-    const logo = await logoService.createLogo(file);
+    const logo = await logoService.createLogo(file, name);
 
     const response: ApiResponse = {
       success: true,
