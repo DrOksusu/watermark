@@ -22,8 +22,8 @@ COPY . .
 # Build TypeScript
 RUN npm run build
 
-# Production stage - use Debian buster for better compatibility
-FROM node:18-buster AS production
+# Production stage - use Debian bullseye for better compatibility
+FROM node:18-bullseye AS production
 
 WORKDIR /app
 
