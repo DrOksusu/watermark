@@ -1,18 +1,60 @@
 'use client';
 
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useLogoStore } from '@/stores/useLogoStore';
+import { useLogoLibraryStore } from '@/stores/useLogoLibraryStore';
 import { Label } from '@/components/ui/label';
 import { Slider } from '@/components/ui/slider';
 import { Button } from '@/components/ui/button';
-import { Upload, X, Image as ImageIcon } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from '@/components/ui/dialog';
+import { Upload, X, Image as ImageIcon, Save, Loader2, Check } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 export default function LogoSettings() {
   const { logo, scale, opacity, setLogo, setScale, setOpacity, removeLogo } =
     useLogoStore();
+  const { uploadLogo, logos, isLoading: isLibraryLoading } = useLogoLibraryStore();
+
+  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
+  const [logoName, setLogoName] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveSuccess, setSaveSuccess] = useState(false);
+
+  // 현재 로고가 이미 라이브러리에 있는지 확인
+  const isLogoInLibrary = logo && logos.some(l => l.name === logo.name);
+
+  const handleSaveToLibrary = async () => {
+    if (!logo?.file) return;
+
+    setIsSaving(true);
+    const success = await uploadLogo(logo.file, logoName.trim() || logo.name);
+    setIsSaving(false);
+
+    if (success) {
+      setSaveSuccess(true);
+      setTimeout(() => {
+        setSaveDialogOpen(false);
+        setSaveSuccess(false);
+        setLogoName('');
+      }, 1000);
+    }
+  };
+
+  const openSaveDialog = () => {
+    if (logo) {
+      setLogoName(logo.name.replace(/\.[^/.]+$/, '')); // 확장자 제거
+      setSaveDialogOpen(true);
+    }
+  };
 
   const onDrop = useCallback(
     (acceptedFiles: File[]) => {
@@ -93,6 +135,20 @@ export default function LogoSettings() {
                 step={0.05}
               />
             </div>
+
+            {/* 라이브러리에 저장 버튼 */}
+            {logo.file && (
+              <Button
+                variant="outline"
+                size="sm"
+                className="w-full"
+                onClick={openSaveDialog}
+                disabled={isLibraryLoading}
+              >
+                <Save className="h-4 w-4 mr-2" />
+                라이브러리에 저장
+              </Button>
+            )}
           </div>
         ) : (
           <div
@@ -115,6 +171,78 @@ export default function LogoSettings() {
         <p className="text-xs text-muted-foreground">
           캔버스에서 드래그하여 위치를 조정하세요
         </p>
+
+        {/* 라이브러리 저장 다이얼로그 */}
+        <Dialog open={saveDialogOpen} onOpenChange={setSaveDialogOpen}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2">
+                <Save className="h-5 w-5" />
+                로고 라이브러리에 저장
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4">
+              {/* 미리보기 */}
+              {logo && (
+                <div className="flex justify-center">
+                  <img
+                    src={logo.url}
+                    alt="미리보기"
+                    className="max-h-24 object-contain rounded border"
+                  />
+                </div>
+              )}
+
+              <div className="space-y-2">
+                <Label>로고 이름</Label>
+                <Input
+                  value={logoName}
+                  onChange={(e) => setLogoName(e.target.value)}
+                  placeholder="예: 병원 로고, 부서 로고"
+                  disabled={isSaving || saveSuccess}
+                />
+              </div>
+
+              {isLogoInLibrary && (
+                <p className="text-xs text-amber-600">
+                  같은 이름의 로고가 이미 라이브러리에 있습니다.
+                </p>
+              )}
+            </div>
+
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => setSaveDialogOpen(false)}
+                disabled={isSaving}
+              >
+                취소
+              </Button>
+              <Button
+                onClick={handleSaveToLibrary}
+                disabled={isSaving || saveSuccess || !logo?.file}
+              >
+                {saveSuccess ? (
+                  <>
+                    <Check className="h-4 w-4 mr-2" />
+                    저장됨
+                  </>
+                ) : isSaving ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-4 w-4 mr-2" />
+                    저장
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </CardContent>
     </Card>
   );

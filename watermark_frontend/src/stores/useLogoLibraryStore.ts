@@ -89,7 +89,11 @@ export const useLogoLibraryStore = create<LogoLibraryStore>((set, get) => ({
       const logoUrl = logoService.getLogoUrl(logo);
 
       // 이미지 로드하여 로고 설정
-      await loadLogoToStore(logoUrl, logo.name);
+      const loaded = await loadLogoToStore(logoUrl, logo.name);
+      if (!loaded) {
+        set({ error: '로고 파일을 불러올 수 없습니다. 파일이 서버에 존재하지 않을 수 있습니다.' });
+        return false;
+      }
 
       // 선택된 로고 업데이트
       set({ selectedLogoId: logoId });
@@ -159,7 +163,7 @@ export const useLogoLibraryStore = create<LogoLibraryStore>((set, get) => ({
 }));
 
 // 로고 URL을 로드하여 useLogoStore에 설정하는 헬퍼 함수
-async function loadLogoToStore(url: string, name: string): Promise<void> {
+async function loadLogoToStore(url: string, name: string): Promise<boolean> {
   try {
     console.log('Loading logo from URL:', url);
 
@@ -169,7 +173,8 @@ async function loadLogoToStore(url: string, name: string): Promise<void> {
     });
 
     if (!response.ok) {
-      throw new Error(`Failed to fetch logo: ${response.status} ${response.statusText}`);
+      console.warn(`Logo file not found: ${response.status} ${response.statusText}`);
+      return false;
     }
 
     const blob = await response.blob();
@@ -184,8 +189,9 @@ async function loadLogoToStore(url: string, name: string): Promise<void> {
     await logoStore.setLogo(file);
 
     console.log('Logo successfully loaded to store');
+    return true;
   } catch (error) {
     console.error('Error loading logo to store:', error);
-    throw error;
+    return false;
   }
 }
