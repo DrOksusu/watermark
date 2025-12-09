@@ -37,7 +37,7 @@ export default function DateSettings() {
       <CardHeader className="pb-3">
         <CardTitle className="text-sm flex items-center gap-2">
           <Calendar className="h-4 w-4" />
-          촬영일자
+          텍스트입력
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

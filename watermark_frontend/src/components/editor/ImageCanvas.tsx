@@ -14,9 +14,14 @@ interface ImageCanvasProps {
   stageRef: React.RefObject<Konva.Stage | null>;
 }
 
+// 선택 가능한 요소 타입
+type SelectedElementType = 'none' | 'logo' | 'dateText' | 'annotation';
+
 export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const dateTextRef = useRef<Konva.Text>(null);
+  const logoRef = useRef<Konva.Image>(null);
 
   const [containerSize, setContainerSize] = useState({ width: 800, height: 600 });
   const [mainImage, setMainImage] = useState<HTMLImageElement | null>(null);
@@ -25,10 +30,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawStart, setDrawStart] = useState<Position | null>(null);
   const [tempAnnotation, setTempAnnotation] = useState<Partial<Annotation> | null>(null);
+  const [selectedElement, setSelectedElement] = useState<SelectedElementType>('none');
 
   const { images, selectedImageId } = useImageStore();
-  const { logo, position: logoPosition, scale: logoScale, opacity: logoOpacity, setPosition: setLogoPosition } = useLogoStore();
-  const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity, setPosition: setDatePosition } = useDateStore();
+  const { logo, position: logoPosition, scale: logoScale, opacity: logoOpacity, setPosition: setLogoPosition, setScale: setLogoScale } = useLogoStore();
+  const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity, width: dateWidth, setPosition: setDatePosition, setScale: setDateScale, setWidth: setDateWidth } = useDateStore();
   const {
     selectedTool,
     toolSettings,
@@ -104,19 +110,30 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     return () => window.removeEventListener('resize', updateSize);
   }, [mainImage]);
 
-  // Update transformer
+  // Update transformer based on selected element
   useEffect(() => {
-    if (transformerRef.current && selectedAnnotationId) {
+    if (!transformerRef.current) return;
+
+    let nodeToTransform: Konva.Node | null = null;
+
+    if (selectedElement === 'dateText' && dateTextRef.current) {
+      nodeToTransform = dateTextRef.current;
+    } else if (selectedElement === 'logo' && logoRef.current) {
+      nodeToTransform = logoRef.current;
+    } else if (selectedElement === 'annotation' && selectedAnnotationId) {
       const stage = stageRef.current;
       if (stage) {
-        const selectedNode = stage.findOne(`#${selectedAnnotationId}`);
-        if (selectedNode) {
-          transformerRef.current.nodes([selectedNode]);
-          transformerRef.current.getLayer()?.batchDraw();
-        }
+        nodeToTransform = stage.findOne(`#${selectedAnnotationId}`);
       }
     }
-  }, [selectedAnnotationId, stageRef]);
+
+    if (nodeToTransform) {
+      transformerRef.current.nodes([nodeToTransform]);
+    } else {
+      transformerRef.current.nodes([]);
+    }
+    transformerRef.current.getLayer()?.batchDraw();
+  }, [selectedElement, selectedAnnotationId, stageRef]);
 
   const handleStageMouseDown = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
@@ -124,6 +141,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
       if (clickedOnEmpty) {
         setSelectedAnnotation(null);
+        setSelectedElement('none');
       }
 
       if (selectedTool && selectedImageId) {
@@ -270,6 +288,92 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       setDatePosition({ x: newX, y: newY });
     },
     [scale, mainImage, setDatePosition]
+  );
+
+  // 텍스트 크기 변환 완료 핸들러
+  const handleDateTransformEnd = useCallback(
+    (e: KonvaEventObject<Event>) => {
+      if (!mainImage) return;
+
+      const node = e.target as Konva.Text;
+      const scaleX = node.scaleX();
+      const scaleY = node.scaleY();
+
+      // 너비 계산 (이미지 너비 대비 비율)
+      const currentWidth = node.width() * scaleX;
+      const newWidth = currentWidth / scale / mainImage.width;
+
+      // 위치도 업데이트
+      const newX = node.x() / scale / mainImage.width;
+      const newY = node.y() / scale / mainImage.height;
+
+      // scaleX와 scaleY가 거의 같으면 모서리 핸들 (비율 유지 크기 조절)
+      // 다르면 좌우 핸들 (너비만 조절)
+      const isProportionalScale = Math.abs(scaleX - scaleY) < 0.01;
+
+      if (isProportionalScale) {
+        // 모서리 핸들: 폰트 크기 변경
+        const newDateScale = dateScale * scaleY;
+        console.log('handleDateTransformEnd (proportional):', {
+          scaleX,
+          scaleY,
+          oldDateScale: dateScale,
+          newDateScale,
+          newWidth,
+        });
+        setDateScale(newDateScale);
+        setDateWidth(null); // 너비 자동
+      } else {
+        // 좌우 핸들: 너비만 변경 (줄바꿈용)
+        console.log('handleDateTransformEnd (width only):', {
+          scaleX,
+          scaleY,
+          newWidth,
+        });
+        setDateWidth(newWidth);
+      }
+
+      // 노드의 scale을 1로 리셋하고 실제 width 설정
+      node.scaleX(1);
+      node.scaleY(1);
+      node.width(currentWidth);
+
+      setDatePosition({ x: newX, y: newY });
+    },
+    [mainImage, scale, dateScale, setDateScale, setDateWidth, setDatePosition]
+  );
+
+  // 로고 크기 변환 완료 핸들러
+  const handleLogoTransformEnd = useCallback(
+    (e: KonvaEventObject<Event>) => {
+      if (!mainImage) return;
+
+      const node = e.target as Konva.Image;
+      const scaleX = node.scaleX();
+
+      // 현재 logoScale에 scaleX를 곱해서 새로운 logoScale 계산
+      const newLogoScale = logoScale * scaleX;
+
+      // 노드의 scale을 1로 리셋
+      node.scaleX(1);
+      node.scaleY(1);
+
+      // 위치도 업데이트
+      const newX = node.x() / scale / mainImage.width;
+      const newY = node.y() / scale / mainImage.height;
+
+      console.log('handleLogoTransformEnd:', {
+        scaleX,
+        oldLogoScale: logoScale,
+        newLogoScale,
+        newX,
+        newY,
+      });
+
+      setLogoScale(newLogoScale);
+      setLogoPosition({ x: newX, y: newY });
+    },
+    [mainImage, scale, logoScale, setLogoScale, setLogoPosition]
   );
 
   const handleAnnotationDragEnd = useCallback(
@@ -439,6 +543,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
             return (
               <KonvaImage
+                ref={logoRef}
                 image={logoImage}
                 x={logoX}
                 y={logoY}
@@ -446,7 +551,10 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
                 height={logoHeight}
                 opacity={logoOpacity}
                 draggable={!selectedTool}
+                onClick={() => setSelectedElement('logo')}
+                onTap={() => setSelectedElement('logo')}
                 onDragEnd={handleLogoDragEnd}
+                onTransformEnd={handleLogoTransformEnd}
               />
             );
           })()}
@@ -454,6 +562,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           {/* Date Text - 5글자(22.03) 기준으로 폰트 크기 계산 (dateScale=1.0 이면 5글자가 이미지 너비를 채움) */}
           {dateText && (
             <Text
+              ref={dateTextRef}
               text={dateText}
               x={datePosition.x * mainImage.width * scale}
               y={datePosition.y * mainImage.height * scale}
@@ -461,8 +570,27 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
               fontFamily={font.family}
               fill={font.color}
               opacity={dateOpacity}
+              width={dateWidth ? dateWidth * mainImage.width * scale : undefined}
+              wrap="char"
               draggable={!selectedTool}
+              onClick={() => setSelectedElement('dateText')}
+              onTap={() => setSelectedElement('dateText')}
               onDragEnd={handleDateDragEnd}
+              onTransform={(e) => {
+                // 드래그 중 실시간으로 너비 업데이트 (줄바꿈 적용)
+                const node = e.target as Konva.Text;
+                const scaleX = node.scaleX();
+                const scaleY = node.scaleY();
+
+                // 좌우 핸들인 경우 (scaleX와 scaleY가 다름)
+                if (Math.abs(scaleX - scaleY) > 0.01) {
+                  const newWidth = node.width() * scaleX;
+                  node.width(newWidth);
+                  node.scaleX(1);
+                  node.scaleY(1);
+                }
+              }}
+              onTransformEnd={handleDateTransformEnd}
             />
           )}
 
@@ -472,8 +600,24 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           {/* Temporary Annotation while drawing */}
           {renderTempAnnotation()}
 
-          {/* Transformer for selected annotation */}
-          <Transformer ref={transformerRef} />
+          {/* Transformer for selected element (text, logo, annotation) */}
+          <Transformer
+            ref={transformerRef}
+            boundBoxFunc={(oldBox, newBox) => {
+              // 최소 크기 제한
+              if (newBox.width < 10 || newBox.height < 10) {
+                return oldBox;
+              }
+              return newBox;
+            }}
+            enabledAnchors={
+              selectedElement === 'dateText'
+                ? ['middle-left', 'middle-right', 'top-left', 'top-right', 'bottom-left', 'bottom-right']
+                : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+            }
+            rotateEnabled={false}
+            keepRatio={selectedElement !== 'dateText'}
+          />
         </Layer>
       </Stage>
     </div>

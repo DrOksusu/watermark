@@ -7,11 +7,13 @@ interface DateStore {
   font: FontSettings;
   scale: number;
   opacity: number;
+  width: number | null; // 텍스트 박스 너비 (비율, null이면 자동)
   setText: (text: string) => void;
   setPosition: (position: Position) => void;
   setFont: (font: Partial<FontSettings>) => void;
   setScale: (scale: number) => void;
   setOpacity: (opacity: number) => void;
+  setWidth: (width: number | null) => void;
 }
 
 export const useDateStore = create<DateStore>((set) => ({
@@ -26,6 +28,7 @@ export const useDateStore = create<DateStore>((set) => ({
   // scale은 5글자(22.03) 기준 이미지 너비 대비 비율 (1.0 = 100% = 5글자가 이미지 너비를 채움)
   scale: 0.15,
   opacity: 1,
+  width: null, // null이면 텍스트 길이에 맞게 자동
 
   setText: (text: string) => {
     set({ text });
@@ -47,5 +50,9 @@ export const useDateStore = create<DateStore>((set) => ({
 
   setOpacity: (opacity: number) => {
     set({ opacity });
+  },
+
+  setWidth: (width: number | null) => {
+    set({ width });
   },
 }));
