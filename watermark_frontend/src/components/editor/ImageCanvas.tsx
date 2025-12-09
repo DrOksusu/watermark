@@ -123,7 +123,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     } else if (selectedElement === 'annotation' && selectedAnnotationId) {
       const stage = stageRef.current;
       if (stage) {
-        nodeToTransform = stage.findOne(`#${selectedAnnotationId}`);
+        nodeToTransform = stage.findOne(`#${selectedAnnotationId}`) || null;
       }
     }
 
