@@ -45,7 +45,7 @@ export interface LogoSettings {
   opacity: number;
 }
 
-export type AnnotationType = 'box' | 'dashed-box' | 'arrow' | 'text';
+export type AnnotationType = 'box' | 'dashed-box' | 'dashed-circle' | 'arrow' | 'text';
 export type LineStyle = 'solid' | 'dashed';
 
 export interface AnnotationStyle {

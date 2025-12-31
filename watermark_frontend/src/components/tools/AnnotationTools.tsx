@@ -9,6 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import {
   Square,
   SquareDashed,
+  CircleDashed,
   ArrowRight,
   Type,
   Pencil,
@@ -21,6 +22,7 @@ import { useImageStore } from '@/stores/useImageStore';
 const TOOLS: { type: AnnotationType; icon: React.ReactNode; label: string }[] = [
   { type: 'box', icon: <Square className="h-4 w-4" />, label: '실선 박스' },
   { type: 'dashed-box', icon: <SquareDashed className="h-4 w-4" />, label: '점선 박스' },
+  { type: 'dashed-circle', icon: <CircleDashed className="h-4 w-4" />, label: '점선 원' },
   { type: 'arrow', icon: <ArrowRight className="h-4 w-4" />, label: '화살표' },
   { type: 'text', icon: <Type className="h-4 w-4" />, label: '텍스트' },
 ];
@@ -57,7 +59,7 @@ export default function AnnotationTools() {
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-4 gap-2">
+        <div className="grid grid-cols-5 gap-2">
           {TOOLS.map((tool) => (
             <Button
               key={tool.type}

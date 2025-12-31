@@ -1,7 +1,7 @@
 'use client';
 
 import { useRef, useEffect, useState, useCallback } from 'react';
-import { Stage, Layer, Image as KonvaImage, Text, Rect, Arrow, Line, Transformer } from 'react-konva';
+import { Stage, Layer, Image as KonvaImage, Text, Rect, Arrow, Ellipse, Transformer } from 'react-konva';
 import { KonvaEventObject } from 'konva/lib/Node';
 import Konva from 'konva';
 import { useImageStore } from '@/stores/useImageStore';
@@ -217,7 +217,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           style: {
             color: toolSettings.color,
             thickness: toolSettings.thickness,
-            lineStyle: selectedTool === 'dashed-box' ? 'dashed' : 'solid',
+            lineStyle: (selectedTool === 'dashed-box' || selectedTool === 'dashed-circle') ? 'dashed' : 'solid',
             borderRadius: toolSettings.borderRadius,
           },
         });
@@ -444,6 +444,22 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       );
     }
 
+    if (type === 'dashed-circle') {
+      return (
+        <Ellipse
+          key={id}
+          {...commonProps}
+          x={(position.x + size.width / 2) * scale}
+          y={(position.y + size.height / 2) * scale}
+          radiusX={(size.width / 2) * scale}
+          radiusY={(size.height / 2) * scale}
+          stroke={style.color}
+          strokeWidth={style.thickness}
+          dash={[10, 5]}
+        />
+      );
+    }
+
     return null;
   };
 
@@ -478,6 +494,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           strokeWidth={style?.thickness || 2}
           cornerRadius={style?.borderRadius || 0}
           dash={type === 'dashed-box' ? [10, 5] : undefined}
+        />
+      );
+    }
+
+    if (type === 'dashed-circle' && position && size) {
+      return (
+        <Ellipse
+          x={(position.x + size.width / 2) * scale}
+          y={(position.y + size.height / 2) * scale}
+          radiusX={(size.width / 2) * scale}
+          radiusY={(size.height / 2) * scale}
+          stroke={style?.color || '#FF0000'}
+          strokeWidth={style?.thickness || 2}
+          dash={[10, 5]}
         />
       );
     }

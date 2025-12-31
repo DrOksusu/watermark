@@ -184,6 +184,16 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             } else {
               ctx.strokeRect(ax, ay, aw, ah);
             }
+          } else if (annotation.type === 'dashed-circle') {
+            ctx.setLineDash([10 * imgScale, 5 * imgScale]);
+            const cx = offsetX + (annotation.position.x + annotation.size.width / 2) * imgScale;
+            const cy = offsetY + (annotation.position.y + annotation.size.height / 2) * imgScale;
+            const rx = (annotation.size.width / 2) * imgScale;
+            const ry = (annotation.size.height / 2) * imgScale;
+
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, rx, ry, 0, 0, Math.PI * 2);
+            ctx.stroke();
           } else if (annotation.type === 'arrow' && annotation.points) {
             const pts = annotation.points;
             const dx = pts[2] * imgScale;
