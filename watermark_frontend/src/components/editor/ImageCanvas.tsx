@@ -8,7 +8,9 @@ import { useImageStore } from '@/stores/useImageStore';
 import { useLogoStore } from '@/stores/useLogoStore';
 import { useDateStore } from '@/stores/useDateStore';
 import { useAnnotationStore } from '@/stores/useAnnotationStore';
+import { useCropStore } from '@/stores/useCropStore';
 import { Annotation, Position } from '@/types';
+import { Group } from 'react-konva';
 
 interface ImageCanvasProps {
   stageRef: React.RefObject<Konva.Stage | null>;
@@ -20,6 +22,8 @@ type SelectedElementType = 'none' | 'logo' | 'dateText' | 'annotation';
 export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const transformerRef = useRef<Konva.Transformer>(null);
+  const cropTransformerRef = useRef<Konva.Transformer>(null);
+  const cropRectRef = useRef<Konva.Rect>(null);
   const dateTextRef = useRef<Konva.Text>(null);
   const logoRef = useRef<Konva.Image>(null);
 
@@ -46,6 +50,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     setSelectedAnnotation,
     setTool,
   } = useAnnotationStore();
+  const { enabled: cropEnabled, cropArea, setCropArea, isAdjusting: isCropAdjusting, setIsAdjusting: setIsCropAdjusting } = useCropStore();
 
   const selectedImage = images.find((img) => img.id === selectedImageId);
   const templateImage = images[0]; // 첫 번째 이미지가 템플릿
@@ -134,6 +139,18 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     }
     transformerRef.current.getLayer()?.batchDraw();
   }, [selectedElement, selectedAnnotationId, stageRef]);
+
+  // Update crop transformer
+  useEffect(() => {
+    if (!cropTransformerRef.current || !cropRectRef.current) return;
+
+    if (cropEnabled) {
+      cropTransformerRef.current.nodes([cropRectRef.current]);
+    } else {
+      cropTransformerRef.current.nodes([]);
+    }
+    cropTransformerRef.current.getLayer()?.batchDraw();
+  }, [cropEnabled]);
 
   const handleStageMouseDown = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
@@ -629,6 +646,95 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
           {/* Temporary Annotation while drawing */}
           {renderTempAnnotation()}
+
+          {/* Crop Overlay */}
+          {cropEnabled && mainImage && (
+            <Group>
+              {/* 어두운 영역 (크롭 영역 바깥) */}
+              {/* 상단 */}
+              <Rect
+                x={0}
+                y={0}
+                width={mainImage.width * scale}
+                height={cropArea.y * mainImage.height * scale}
+                fill="rgba(0, 0, 0, 0.5)"
+                listening={false}
+              />
+              {/* 하단 */}
+              <Rect
+                x={0}
+                y={(cropArea.y + cropArea.height) * mainImage.height * scale}
+                width={mainImage.width * scale}
+                height={(1 - cropArea.y - cropArea.height) * mainImage.height * scale}
+                fill="rgba(0, 0, 0, 0.5)"
+                listening={false}
+              />
+              {/* 좌측 */}
+              <Rect
+                x={0}
+                y={cropArea.y * mainImage.height * scale}
+                width={cropArea.x * mainImage.width * scale}
+                height={cropArea.height * mainImage.height * scale}
+                fill="rgba(0, 0, 0, 0.5)"
+                listening={false}
+              />
+              {/* 우측 */}
+              <Rect
+                x={(cropArea.x + cropArea.width) * mainImage.width * scale}
+                y={cropArea.y * mainImage.height * scale}
+                width={(1 - cropArea.x - cropArea.width) * mainImage.width * scale}
+                height={cropArea.height * mainImage.height * scale}
+                fill="rgba(0, 0, 0, 0.5)"
+                listening={false}
+              />
+              {/* 크롭 영역 테두리 */}
+              <Rect
+                ref={cropRectRef}
+                id="crop-rect"
+                x={cropArea.x * mainImage.width * scale}
+                y={cropArea.y * mainImage.height * scale}
+                width={cropArea.width * mainImage.width * scale}
+                height={cropArea.height * mainImage.height * scale}
+                stroke="#ffffff"
+                strokeWidth={2}
+                dash={[5, 5]}
+                draggable
+                onDragEnd={(e) => {
+                  const newX = Math.max(0, Math.min(1 - cropArea.width, e.target.x() / scale / mainImage.width));
+                  const newY = Math.max(0, Math.min(1 - cropArea.height, e.target.y() / scale / mainImage.height));
+                  setCropArea({ x: newX, y: newY });
+                }}
+                onTransformEnd={(e) => {
+                  const node = e.target;
+                  const scaleX = node.scaleX();
+                  const scaleY = node.scaleY();
+
+                  node.scaleX(1);
+                  node.scaleY(1);
+
+                  const newX = Math.max(0, node.x() / scale / mainImage.width);
+                  const newY = Math.max(0, node.y() / scale / mainImage.height);
+                  const newWidth = Math.min(1 - newX, (node.width() * scaleX) / scale / mainImage.width);
+                  const newHeight = Math.min(1 - newY, (node.height() * scaleY) / scale / mainImage.height);
+
+                  setCropArea({ x: newX, y: newY, width: newWidth, height: newHeight });
+                }}
+              />
+              {/* Crop Transformer */}
+              <Transformer
+                ref={cropTransformerRef}
+                rotateEnabled={false}
+                keepRatio={false}
+                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+                boundBoxFunc={(oldBox, newBox) => {
+                  if (newBox.width < 20 || newBox.height < 20) {
+                    return oldBox;
+                  }
+                  return newBox;
+                }}
+              />
+            </Group>
+          )}
 
           {/* Transformer for selected element (text, logo, annotation) */}
           <Transformer

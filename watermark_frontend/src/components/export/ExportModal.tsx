@@ -26,7 +26,8 @@ import { useLogoStore } from '@/stores/useLogoStore';
 import { useDateStore } from '@/stores/useDateStore';
 import { useAnnotationStore } from '@/stores/useAnnotationStore';
 import { useExportStore } from '@/stores/useExportStore';
-import { Download, Loader2, FileArchive, Image as ImageIcon } from 'lucide-react';
+import { useCropStore } from '@/stores/useCropStore';
+import { Download, Loader2, FileArchive, Image as ImageIcon, Crop } from 'lucide-react';
 
 interface ExportModalProps {
   open: boolean;
@@ -44,6 +45,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
   const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity } = useDateStore();
   const { getAnnotations } = useAnnotationStore();
   const { settings, setSettings, isExporting, setIsExporting, progress, setProgress } = useExportStore();
+  const { enabled: cropEnabled, cropArea } = useCropStore();
 
   const [currentExporting, setCurrentExporting] = useState('');
 
@@ -232,6 +234,30 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
 
         const mimeType = settings.format === 'png' ? 'image/png' : 'image/jpeg';
         const quality = settings.quality / 100;
+
+        // 크롭이 활성화된 경우 크롭 적용
+        if (cropEnabled) {
+          const cropCanvas = document.createElement('canvas');
+          const cropCtx = cropCanvas.getContext('2d');
+          if (cropCtx) {
+            // 크롭 영역 계산 (이미지 기준)
+            const cropX = offsetX + cropArea.x * scaledImgWidth;
+            const cropY = offsetY + cropArea.y * scaledImgHeight;
+            const cropW = cropArea.width * scaledImgWidth;
+            const cropH = cropArea.height * scaledImgHeight;
+
+            cropCanvas.width = cropW;
+            cropCanvas.height = cropH;
+
+            // 크롭된 영역만 새 캔버스에 그리기
+            cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
+
+            const dataUrl = cropCanvas.toDataURL(mimeType, quality);
+            resolve(dataUrl);
+            return;
+          }
+        }
+
         const dataUrl = canvas.toDataURL(mimeType, quality);
         resolve(dataUrl);
       };
@@ -454,6 +480,12 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             <p className="text-xs text-muted-foreground">
               사이즈: {settings.size === 'original' ? '원본 크기' : settings.size.replace('x', ' x ') + ' px'}
             </p>
+            {cropEnabled && (
+              <p className="text-xs text-muted-foreground flex items-center gap-1">
+                <Crop className="h-3 w-3" />
+                크롭 적용됨 ({Math.round(cropArea.width * 100)}% x {Math.round(cropArea.height * 100)}%)
+              </p>
+            )}
           </div>
 
           {isExporting && (

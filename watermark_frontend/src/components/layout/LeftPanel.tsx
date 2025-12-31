@@ -9,6 +9,7 @@ import LogoLibrary from '@/components/tools/LogoLibrary';
 import DateSettings from '@/components/tools/DateSettings';
 import PresetSettings from '@/components/tools/PresetSettings';
 import AnnotationTools from '@/components/tools/AnnotationTools';
+import CropTool from '@/components/tools/CropTool';
 
 export default function LeftPanel() {
   return (
@@ -34,6 +35,7 @@ export default function LeftPanel() {
           </TabsContent>
 
           <TabsContent value="tools" className="mt-0 p-4 space-y-4">
+            <CropTool />
             <AnnotationTools />
           </TabsContent>
         </ScrollArea>
