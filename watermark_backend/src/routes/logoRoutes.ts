@@ -86,9 +86,15 @@ router.get('/all', async (_req: Request, res: Response) => {
 router.get('/:id/file', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
+    console.log('=== Logo file request ===');
+    console.log('Logo ID:', id);
+    console.log('USE_S3:', USE_S3);
+
     const logo = await logoService.getLogoById(id);
+    console.log('Logo from DB:', logo);
 
     if (!logo) {
+      console.log('Logo not found in DB');
       res.status(404).json({ success: false, error: 'Logo not found' });
       return;
     }
@@ -99,18 +105,29 @@ router.get('/:id/file', async (req: Request, res: Response) => {
 
     // 로컬 파일 경로 확인 (로컬 경로로 저장된 로고도 지원)
     const localFilePath = path.join(__dirname, '../../uploads/logos', logo.filename);
+    console.log('Local file path:', localFilePath);
+    console.log('Local file exists:', fs.existsSync(localFilePath));
 
     // 로컬 파일이 존재하면 로컬에서 서빙
     if (fs.existsSync(localFilePath)) {
+      console.log('Serving from local file');
       res.sendFile(localFilePath);
       return;
     }
 
     // S3에서 가져오기 시도
+    console.log('Logo URL:', logo.url);
+    console.log('URL starts with http:', logo.url.startsWith('http'));
+
     if (USE_S3 && logo.url.startsWith('http')) {
       const s3Key = getS3KeyFromUrl(logo.url);
+      console.log('Extracted S3 key:', s3Key);
+
       if (s3Key) {
+        console.log('Fetching from S3...');
         const buffer = await getFileFromS3(s3Key);
+        console.log('S3 buffer received:', buffer ? `${buffer.length} bytes` : 'null');
+
         if (buffer) {
           res.setHeader('Content-Type', contentType);
           res.send(buffer);
@@ -120,6 +137,7 @@ router.get('/:id/file', async (req: Request, res: Response) => {
     }
 
     // 둘 다 실패
+    console.log('Both local and S3 failed - returning 404');
     res.status(404).json({ success: false, error: 'File not found' });
   } catch (error) {
     console.error('Error serving logo file:', error);
