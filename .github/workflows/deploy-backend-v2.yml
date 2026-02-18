@@ -55,11 +55,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          SUB_DOMAIN_API_KEY: ${{ secrets.SUB_DOMAIN_API_KEY }}
         with:
           host: ${{ secrets.LIGHTSAIL_HOST }}
           username: ${{ secrets.LIGHTSAIL_USERNAME }}
           key: ${{ secrets.LIGHTSAIL_SSH_KEY }}
-          envs: ECR_REGISTRY,DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET
+          envs: ECR_REGISTRY,DATABASE_URL,FRONTEND_URL,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET,SUB_DOMAIN_API_KEY
           script: |
             # ECR 로그인
             aws ecr get-login-password --region us-east-1 | docker login --username AWS --password-stdin $ECR_REGISTRY
@@ -89,6 +90,7 @@ jobs:
               -e "AWS_S3_BUCKET=${AWS_S3_BUCKET}" \
               -e "AWS_REGION=ap-northeast-2" \
               -e "MAX_FILE_SIZE=10485760" \
+              -e "SUB_DOMAIN_API_KEY=${SUB_DOMAIN_API_KEY}" \
               $ECR_REGISTRY/watermark-api:v2-latest
 
             # 상태 확인

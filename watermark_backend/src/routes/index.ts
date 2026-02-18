@@ -4,6 +4,7 @@ import logoRoutes from './logoRoutes';
 import settingsRoutes from './settingsRoutes';
 import watermarkRoutes from './watermarkRoutes';
 import annotationRoutes from './annotationRoutes';
+import authRoutes from './authRoutes';
 
 const router = Router();
 
@@ -12,5 +13,6 @@ router.use('/logo', logoRoutes);
 router.use('/settings', settingsRoutes);
 router.use('/watermark', watermarkRoutes);
 router.use('/annotations', annotationRoutes);
+router.use('/auth', authRoutes);
 
 export default router;

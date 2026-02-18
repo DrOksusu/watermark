@@ -7,6 +7,20 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model User {
+  id           Int      @id @default(autoincrement())
+  userId       Int      @unique @map("user_id")
+  email        String   @db.VarChar(200)
+  name         String   @db.VarChar(50)
+  provider     String   @db.VarChar(20)
+  clinicId     Int      @map("clinic_id")
+  unifiedToken String   @map("unified_token") @db.Text
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@map("users")
+}
+
 model Image {
   id           String   @id @default(uuid())
   originalName String
