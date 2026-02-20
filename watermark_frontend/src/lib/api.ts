@@ -9,6 +9,32 @@ interface ApiResponse<T> {
   message?: string;
 }
 
+// JSON 응답 파싱 공통 처리
+function parseResponse<T>(response: Response, text: string): ApiResponse<T> {
+  let data: ApiResponse<T>;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    return {
+      success: false,
+      error: `서버 오류 (${response.status}): JSON 응답이 아닙니다`,
+    };
+  }
+
+  if (!response.ok) {
+    // 401 응답 시 토큰 만료 처리
+    if (response.status === 401) {
+      useAuthStore.getState().clearToken();
+    }
+    return {
+      success: false,
+      error: data.error || 'API 요청 실패',
+    };
+  }
+
+  return data;
+}
+
 async function fetchApi<T>(
   endpoint: string,
   options: RequestInit = {}
@@ -29,31 +55,43 @@ async function fetchApi<T>(
       },
     });
 
-    // HTML 에러 페이지를 받았을 경우 안전하게 처리
     const text = await response.text();
-    let data: ApiResponse<T>;
-    try {
-      data = JSON.parse(text);
-    } catch {
-      return {
-        success: false,
-        error: `서버 오류 (${response.status}): JSON 응답이 아닙니다`,
-      };
-    }
-
-    if (!response.ok) {
-      return {
-        success: false,
-        error: data.error || 'API 요청 실패',
-      };
-    }
-
-    return data;
+    return parseResponse<T>(response, text);
   } catch (error) {
     console.error('API Error:', error);
     return {
       success: false,
       error: error instanceof Error ? error.message : '네트워크 오류',
+    };
+  }
+}
+
+// FormData 업로드 (로고 등 파일 업로드용)
+async function uploadFile<T>(
+  endpoint: string,
+  formData: FormData
+): Promise<ApiResponse<T>> {
+  try {
+    const token = useAuthStore.getState().unifiedToken;
+    const headers: Record<string, string> = {};
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+    // Content-Type은 설정하지 않음 (브라우저가 FormData boundary 자동 설정)
+
+    const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    });
+
+    const text = await response.text();
+    return parseResponse<T>(response, text);
+  } catch (error) {
+    console.error('API Upload Error:', error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : '업로드 오류',
     };
   }
 }
@@ -74,6 +112,8 @@ export const api = {
     }),
 
   delete: <T>(endpoint: string) => fetchApi<T>(endpoint, { method: 'DELETE' }),
+
+  upload: <T>(endpoint: string, formData: FormData) => uploadFile<T>(endpoint, formData),
 };
 
 export default api;

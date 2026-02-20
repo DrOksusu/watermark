@@ -5,9 +5,9 @@ import { ApiResponse } from '../types';
 const router = Router();
 
 // GET /api/annotations - Get all annotation templates
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const templates = await annotationService.getAllTemplates();
+    const templates = await annotationService.getAllTemplates(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -68,7 +68,7 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    const template = await annotationService.createTemplate(input);
+    const template = await annotationService.createTemplate(input, req.user!.id);
 
     const response: ApiResponse = {
       success: true,

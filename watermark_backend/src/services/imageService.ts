@@ -17,7 +17,7 @@ export interface ImageData {
 }
 
 export const imageService = {
-  async createImage(file: Express.Multer.File): Promise<ImageData> {
+  async createImage(file: Express.Multer.File, ownerId: number): Promise<ImageData> {
     let metadata;
     let url: string;
     let filename: string;
@@ -52,25 +52,27 @@ export const imageService = {
         height: metadata.height || 0,
         size: file.size,
         mimeType: file.mimetype,
+        ownerId,
       },
     });
 
     return image;
   },
 
-  async createImages(files: Express.Multer.File[]): Promise<ImageData[]> {
+  async createImages(files: Express.Multer.File[], ownerId: number): Promise<ImageData[]> {
     const images: ImageData[] = [];
 
     for (const file of files) {
-      const image = await this.createImage(file);
+      const image = await this.createImage(file, ownerId);
       images.push(image);
     }
 
     return images;
   },
 
-  async getAllImages(): Promise<ImageData[]> {
+  async getAllImages(ownerId: number): Promise<ImageData[]> {
     const images = await prisma.image.findMany({
+      where: { ownerId },
       orderBy: { createdAt: 'desc' },
     });
     return images;
@@ -114,8 +116,8 @@ export const imageService = {
     return true;
   },
 
-  async deleteAllImages(): Promise<number> {
-    const images = await prisma.image.findMany();
+  async deleteAllImages(ownerId: number): Promise<number> {
+    const images = await prisma.image.findMany({ where: { ownerId } });
 
     // Delete all files
     for (const image of images) {
@@ -132,8 +134,8 @@ export const imageService = {
       }
     }
 
-    // Delete from database
-    const result = await prisma.image.deleteMany();
+    // DB에서 해당 사용자의 이미지만 삭제
+    const result = await prisma.image.deleteMany({ where: { ownerId } });
     return result.count;
   },
 };

@@ -5,9 +5,9 @@ import { ApiResponse } from '../types';
 const router = Router();
 
 // GET /api/settings - Get default settings
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const settings = await settingsService.getDefaultSettings();
+    const settings = await settingsService.getDefaultSettings(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -25,9 +25,9 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // GET /api/settings/all - Get all settings
-router.get('/all', async (_req: Request, res: Response) => {
+router.get('/all', async (req: Request, res: Response) => {
   try {
-    const settings = await settingsService.getAllSettings();
+    const settings = await settingsService.getAllSettings(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -78,7 +78,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.post('/', async (req: Request, res: Response) => {
   try {
     const input = req.body;
-    const settings = await settingsService.createSettings(input);
+    const settings = await settingsService.createSettings(input, req.user!.id);
 
     const response: ApiResponse = {
       success: true,

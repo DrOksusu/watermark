@@ -9,6 +9,52 @@ import fs from 'fs';
 
 const router = Router();
 
+// 공개 라우트: 로고 파일 프록시 (캔버스에서 직접 로드용, 인증 불필요)
+const logoFileRouter = Router();
+logoFileRouter.get('/:id/file', async (req: Request, res: Response) => {
+  try {
+    const { id } = req.params;
+
+    const logo = await logoService.getLogoById(id);
+
+    if (!logo) {
+      res.status(404).json({ success: false, error: 'Logo not found' });
+      return;
+    }
+
+    const ext = path.extname(logo.filename).toLowerCase();
+    const contentType = ext === '.png' ? 'image/png' :
+                        ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
+
+    // 로컬 파일이 존재하면 로컬에서 서빙
+    const localFilePath = path.join(__dirname, '../../uploads/logos', logo.filename);
+    if (fs.existsSync(localFilePath)) {
+      res.sendFile(localFilePath);
+      return;
+    }
+
+    // S3에서 가져오기 시도
+    if (USE_S3 && logo.url.startsWith('http')) {
+      const s3Key = getS3KeyFromUrl(logo.url);
+      if (s3Key) {
+        const buffer = await getFileFromS3(s3Key);
+        if (buffer) {
+          res.setHeader('Content-Type', contentType);
+          res.send(buffer);
+          return;
+        }
+      }
+    }
+
+    res.status(404).json({ success: false, error: 'File not found' });
+  } catch (error) {
+    console.error('Error serving logo file:', error);
+    res.status(500).json({ success: false, error: 'Failed to serve logo file' });
+  }
+});
+
+export { logoFileRouter as logoFileRoute };
+
 // POST /api/logo/upload - Upload logo
 router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Response) => {
   try {
@@ -24,7 +70,7 @@ router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Resp
       return;
     }
 
-    const logo = await logoService.createLogo(file, name);
+    const logo = await logoService.createLogo(file, req.user!.id, name);
 
     const response: ApiResponse = {
       success: true,
@@ -43,9 +89,9 @@ router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Resp
 });
 
 // GET /api/logo - Get active logo
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const logo = await logoService.getActiveLogo();
+    const logo = await logoService.getActiveLogo(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -63,9 +109,9 @@ router.get('/', async (_req: Request, res: Response) => {
 });
 
 // GET /api/logo/all - Get all logos
-router.get('/all', async (_req: Request, res: Response) => {
+router.get('/all', async (req: Request, res: Response) => {
   try {
-    const logos = await logoService.getAllLogos();
+    const logos = await logoService.getAllLogos(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -82,74 +128,11 @@ router.get('/all', async (_req: Request, res: Response) => {
   }
 });
 
-// GET /api/logo/:id/file - Proxy logo file (bypasses S3 CORS issues)
-router.get('/:id/file', async (req: Request, res: Response) => {
-  try {
-    const { id } = req.params;
-    console.log('=== Logo file request ===');
-    console.log('Logo ID:', id);
-    console.log('USE_S3:', USE_S3);
-
-    const logo = await logoService.getLogoById(id);
-    console.log('Logo from DB:', logo);
-
-    if (!logo) {
-      console.log('Logo not found in DB');
-      res.status(404).json({ success: false, error: 'Logo not found' });
-      return;
-    }
-
-    const ext = path.extname(logo.filename).toLowerCase();
-    const contentType = ext === '.png' ? 'image/png' :
-                        ext === '.jpg' || ext === '.jpeg' ? 'image/jpeg' : 'image/png';
-
-    // 로컬 파일 경로 확인 (로컬 경로로 저장된 로고도 지원)
-    const localFilePath = path.join(__dirname, '../../uploads/logos', logo.filename);
-    console.log('Local file path:', localFilePath);
-    console.log('Local file exists:', fs.existsSync(localFilePath));
-
-    // 로컬 파일이 존재하면 로컬에서 서빙
-    if (fs.existsSync(localFilePath)) {
-      console.log('Serving from local file');
-      res.sendFile(localFilePath);
-      return;
-    }
-
-    // S3에서 가져오기 시도
-    console.log('Logo URL:', logo.url);
-    console.log('URL starts with http:', logo.url.startsWith('http'));
-
-    if (USE_S3 && logo.url.startsWith('http')) {
-      const s3Key = getS3KeyFromUrl(logo.url);
-      console.log('Extracted S3 key:', s3Key);
-
-      if (s3Key) {
-        console.log('Fetching from S3...');
-        const buffer = await getFileFromS3(s3Key);
-        console.log('S3 buffer received:', buffer ? `${buffer.length} bytes` : 'null');
-
-        if (buffer) {
-          res.setHeader('Content-Type', contentType);
-          res.send(buffer);
-          return;
-        }
-      }
-    }
-
-    // 둘 다 실패
-    console.log('Both local and S3 failed - returning 404');
-    res.status(404).json({ success: false, error: 'File not found' });
-  } catch (error) {
-    console.error('Error serving logo file:', error);
-    res.status(500).json({ success: false, error: 'Failed to serve logo file' });
-  }
-});
-
 // PUT /api/logo/:id/activate - Set active logo
 router.put('/:id/activate', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const logo = await logoService.setActiveLogo(id);
+    const logo = await logoService.setActiveLogo(id, req.user!.id);
 
     if (!logo) {
       const response: ApiResponse = {

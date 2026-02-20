@@ -1,0 +1,305 @@
+{
+  "version": "2.0",
+  "lastUpdated": "2026-02-20T22:19:44.458Z",
+  "activeFeatures": [
+    "unified-login",
+    "middleware",
+    "routes",
+    "watermark_backend",
+    "watermark_frontend"
+  ],
+  "primaryFeature": "unified-login",
+  "features": {
+    "unified-login": {
+      "phase": "do",
+      "startedAt": "2026-02-21T00:00:00.000Z",
+      "planDoc": "docs/01-plan/features/unified-login.plan.md",
+      "designDoc": "docs/02-design/features/unified-login.design.md",
+      "matchRate": null,
+      "iterationCount": 0
+    },
+    "middleware": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-20T22:14:21.081Z",
+        "lastUpdated": "2026-02-20T22:14:21.081Z"
+      },
+      "lastFile": "D:\\ExpressProject\\Watermark_project\\watermark_backend\\src\\middleware\\authMiddleware.ts"
+    },
+    "routes": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-20T22:14:31.154Z",
+        "lastUpdated": "2026-02-20T22:19:06.751Z"
+      },
+      "lastFile": "D:\\ExpressProject\\Watermark_project\\watermark_backend\\src\\routes\\annotationRoutes.ts"
+    },
+    "watermark_backend": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-20T22:16:05.451Z",
+        "lastUpdated": "2026-02-20T22:17:41.548Z"
+      },
+      "lastFile": "D:\\ExpressProject\\Watermark_project\\watermark_backend\\src\\services\\annotationService.ts"
+    },
+    "watermark_frontend": {
+      "phase": "do",
+      "phaseNumber": 3,
+      "matchRate": null,
+      "iterationCount": 0,
+      "requirements": [],
+      "documents": {},
+      "timestamps": {
+        "started": "2026-02-20T22:19:28.795Z",
+        "lastUpdated": "2026-02-20T22:19:44.458Z"
+      },
+      "lastFile": "D:\\ExpressProject\\Watermark_project\\watermark_frontend\\src\\services\\logoService.ts"
+    }
+  },
+  "pipeline": {
+    "currentPhase": 1,
+    "level": "Dynamic",
+    "phaseHistory": []
+  },
+  "session": {
+    "startedAt": "2026-02-20T20:22:52.155Z",
+    "onboardingCompleted": false,
+    "lastActivity": "2026-02-20T22:19:44.458Z"
+  },
+  "history": [
+    {
+      "action": "plan_created",
+      "feature": "unified-login",
+      "timestamp": "2026-02-21T00:00:00.000Z"
+    },
+    {
+      "action": "design_created",
+      "feature": "unified-login",
+      "timestamp": "2026-02-21T01:00:00.000Z"
+    },
+    {
+      "action": "do_started",
+      "feature": "unified-login",
+      "timestamp": "2026-02-21T02:00:00.000Z"
+    },
+    {
+      "timestamp": "2026-02-20T22:14:21.081Z",
+      "feature": "middleware",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:14:31.154Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:14:47.176Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:15:00.319Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:15:13.312Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:05.451Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:11.003Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:19.553Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:25.398Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:31.064Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:37.333Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:43.419Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:49.675Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:16:57.809Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:04.470Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:12.283Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:20.109Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:26.090Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:34.211Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:41.548Z",
+      "feature": "watermark_backend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:48.878Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:17:55.581Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:03.330Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:11.412Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:17.929Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:24.497Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:30.715Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:38.979Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:46.444Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:18:53.130Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:19:00.982Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:19:06.751Z",
+      "feature": "routes",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:19:28.796Z",
+      "feature": "watermark_frontend",
+      "phase": "do",
+      "action": "updated"
+    },
+    {
+      "timestamp": "2026-02-20T22:19:44.458Z",
+      "feature": "watermark_frontend",
+      "phase": "do",
+      "action": "updated"
+    }
+  ]
+}

@@ -19,7 +19,7 @@ router.post('/upload', uploadImages.array('images', 50), async (req: Request, re
       return;
     }
 
-    const images = await imageService.createImages(files);
+    const images = await imageService.createImages(files, req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -38,9 +38,9 @@ router.post('/upload', uploadImages.array('images', 50), async (req: Request, re
 });
 
 // GET /api/images - Get all images
-router.get('/', async (_req: Request, res: Response) => {
+router.get('/', async (req: Request, res: Response) => {
   try {
-    const images = await imageService.getAllImages();
+    const images = await imageService.getAllImages(req.user!.id);
 
     const response: ApiResponse = {
       success: true,
@@ -118,9 +118,9 @@ router.delete('/:id', async (req: Request, res: Response) => {
 });
 
 // DELETE /api/images - Delete all images
-router.delete('/', async (_req: Request, res: Response) => {
+router.delete('/', async (req: Request, res: Response) => {
   try {
-    const count = await imageService.deleteAllImages();
+    const count = await imageService.deleteAllImages(req.user!.id);
 
     const response: ApiResponse = {
       success: true,

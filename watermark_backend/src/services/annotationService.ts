@@ -22,7 +22,7 @@ export interface AnnotationTemplateInput {
 }
 
 export const annotationService = {
-  async createTemplate(input: AnnotationTemplateInput): Promise<AnnotationTemplateData> {
+  async createTemplate(input: AnnotationTemplateInput, ownerId: number): Promise<AnnotationTemplateData> {
     const template = await prisma.annotationTemplate.create({
       data: {
         name: input.name,
@@ -31,14 +31,16 @@ export const annotationService = {
         thickness: input.style?.thickness || 2,
         lineStyle: input.style?.lineStyle || 'solid',
         borderRadius: input.style?.borderRadius || 0,
+        ownerId,
       },
     });
 
     return template;
   },
 
-  async getAllTemplates(): Promise<AnnotationTemplateData[]> {
+  async getAllTemplates(ownerId: number): Promise<AnnotationTemplateData[]> {
     const templates = await prisma.annotationTemplate.findMany({
+      where: { ownerId },
       orderBy: { createdAt: 'desc' },
     });
     return templates;

@@ -37,14 +37,14 @@ export interface SettingsInput {
 }
 
 export const settingsService = {
-  async getDefaultSettings(): Promise<SettingsData> {
+  async getDefaultSettings(ownerId: number): Promise<SettingsData> {
     let settings = await prisma.settings.findFirst({
-      where: { name: 'default' },
+      where: { name: 'default', ownerId },
     });
 
     if (!settings) {
       settings = await prisma.settings.create({
-        data: { name: 'default' },
+        data: { name: 'default', ownerId },
       });
     }
 
@@ -58,17 +58,19 @@ export const settingsService = {
     return settings;
   },
 
-  async getAllSettings(): Promise<SettingsData[]> {
+  async getAllSettings(ownerId: number): Promise<SettingsData[]> {
     const settings = await prisma.settings.findMany({
+      where: { ownerId },
       orderBy: { createdAt: 'desc' },
     });
     return settings;
   },
 
-  async createSettings(input: SettingsInput): Promise<SettingsData> {
+  async createSettings(input: SettingsInput, ownerId: number): Promise<SettingsData> {
     const settings = await prisma.settings.create({
       data: {
         name: input.name || 'custom',
+        ownerId,
         logoPositionX: input.logoPositionX ?? 0.02,
         logoPositionY: input.logoPositionY ?? 0.02,
         logoAnchor: input.logoAnchor || 'top-left',

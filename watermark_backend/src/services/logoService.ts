@@ -16,7 +16,7 @@ export interface LogoData {
 }
 
 export const logoService = {
-  async createLogo(file: Express.Multer.File, customName?: string): Promise<LogoData> {
+  async createLogo(file: Express.Multer.File, ownerId: number, customName?: string): Promise<LogoData> {
     console.log('=== createLogo called ===');
     console.log('USE_S3:', USE_S3);
     console.log('AWS_S3_BUCKET:', process.env.AWS_S3_BUCKET);
@@ -61,9 +61,9 @@ export const logoService = {
       url = `/uploads/logos/${filename}`;
     }
 
-    // Deactivate all existing logos
+    // 해당 사용자의 기존 활성 로고 비활성화
     await prisma.logo.updateMany({
-      where: { isActive: true },
+      where: { isActive: true, ownerId },
       data: { isActive: false },
     });
 
@@ -78,21 +78,23 @@ export const logoService = {
         width: metadata.width || 0,
         height: metadata.height || 0,
         isActive: true,
+        ownerId,
       },
     });
 
     return logo;
   },
 
-  async getActiveLogo(): Promise<LogoData | null> {
+  async getActiveLogo(ownerId: number): Promise<LogoData | null> {
     const logo = await prisma.logo.findFirst({
-      where: { isActive: true },
+      where: { isActive: true, ownerId },
     });
     return logo;
   },
 
-  async getAllLogos(): Promise<LogoData[]> {
+  async getAllLogos(ownerId: number): Promise<LogoData[]> {
     const logos = await prisma.logo.findMany({
+      where: { ownerId },
       orderBy: { createdAt: 'desc' },
     });
     return logos;
@@ -105,10 +107,10 @@ export const logoService = {
     return logo;
   },
 
-  async setActiveLogo(id: string): Promise<LogoData | null> {
-    // Deactivate all logos
+  async setActiveLogo(id: string, ownerId: number): Promise<LogoData | null> {
+    // 해당 사용자의 활성 로고 비활성화
     await prisma.logo.updateMany({
-      where: { isActive: true },
+      where: { isActive: true, ownerId },
       data: { isActive: false },
     });
 
