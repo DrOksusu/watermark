@@ -48,7 +48,7 @@ router.get('/all', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const settings = await settingsService.getSettingsById(id);
+    const settings = await settingsService.getSettingsById(id, req.user!.id);
 
     if (!settings) {
       const response: ApiResponse = {
@@ -101,7 +101,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const input = req.body;
-    const settings = await settingsService.updateSettings(id, input);
+    const settings = await settingsService.updateSettings(id, input, req.user!.id);
 
     if (!settings) {
       const response: ApiResponse = {
@@ -132,7 +132,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await settingsService.deleteSettings(id);
+    const deleted = await settingsService.deleteSettings(id, req.user!.id);
 
     if (!deleted) {
       const response: ApiResponse = {

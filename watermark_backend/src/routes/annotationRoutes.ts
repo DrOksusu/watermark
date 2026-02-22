@@ -28,7 +28,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const template = await annotationService.getTemplateById(id);
+    const template = await annotationService.getTemplateById(id, req.user!.id);
 
     if (!template) {
       const response: ApiResponse = {
@@ -91,7 +91,7 @@ router.put('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
     const input = req.body;
-    const template = await annotationService.updateTemplate(id, input);
+    const template = await annotationService.updateTemplate(id, input, req.user!.id);
 
     if (!template) {
       const response: ApiResponse = {
@@ -122,7 +122,7 @@ router.put('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await annotationService.deleteTemplate(id);
+    const deleted = await annotationService.deleteTemplate(id, req.user!.id);
 
     if (!deleted) {
       const response: ApiResponse = {

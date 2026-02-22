@@ -100,14 +100,20 @@ export const logoService = {
     return logos;
   },
 
-  async getLogoById(id: string): Promise<LogoData | null> {
-    const logo = await prisma.logo.findUnique({
-      where: { id },
+  async getLogoById(id: string, ownerId?: number): Promise<LogoData | null> {
+    const logo = await prisma.logo.findFirst({
+      where: ownerId ? { id, ownerId } : { id },
     });
     return logo;
   },
 
   async setActiveLogo(id: string, ownerId: number): Promise<LogoData | null> {
+    // 소유권 확인
+    const existing = await prisma.logo.findFirst({
+      where: { id, ownerId },
+    });
+    if (!existing) return null;
+
     // 해당 사용자의 활성 로고 비활성화
     await prisma.logo.updateMany({
       where: { isActive: true, ownerId },
@@ -123,9 +129,9 @@ export const logoService = {
     return logo;
   },
 
-  async deleteLogo(id: string): Promise<boolean> {
-    const logo = await prisma.logo.findUnique({
-      where: { id },
+  async deleteLogo(id: string, ownerId: number): Promise<boolean> {
+    const logo = await prisma.logo.findFirst({
+      where: { id, ownerId },
     });
 
     if (!logo) {

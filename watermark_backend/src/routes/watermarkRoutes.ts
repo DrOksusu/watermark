@@ -16,7 +16,7 @@ router.post('/preview', async (req: Request, res: Response) => {
       quality: 90,
     };
 
-    const result = await watermarkService.processImage(imageId, settings, outputSettings);
+    const result = await watermarkService.processImage(imageId, settings, outputSettings, req.user!.id);
 
     if (!result) {
       const response: ApiResponse = {
@@ -65,7 +65,7 @@ router.post('/batch', async (req: Request, res: Response) => {
       return;
     }
 
-    const result = await watermarkService.batchProcess(imageIds, settings, outputSettings);
+    const result = await watermarkService.batchProcess(imageIds, settings, outputSettings, req.user!.id);
 
     const response: ApiResponse = {
       success: true,

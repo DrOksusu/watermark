@@ -46,19 +46,20 @@ export const annotationService = {
     return templates;
   },
 
-  async getTemplateById(id: string): Promise<AnnotationTemplateData | null> {
-    const template = await prisma.annotationTemplate.findUnique({
-      where: { id },
+  async getTemplateById(id: string, ownerId: number): Promise<AnnotationTemplateData | null> {
+    const template = await prisma.annotationTemplate.findFirst({
+      where: { id, ownerId },
     });
     return template;
   },
 
   async updateTemplate(
     id: string,
-    input: Partial<AnnotationTemplateInput>
+    input: Partial<AnnotationTemplateInput>,
+    ownerId: number
   ): Promise<AnnotationTemplateData | null> {
-    const existing = await prisma.annotationTemplate.findUnique({
-      where: { id },
+    const existing = await prisma.annotationTemplate.findFirst({
+      where: { id, ownerId },
     });
 
     if (!existing) {
@@ -80,9 +81,9 @@ export const annotationService = {
     return template;
   },
 
-  async deleteTemplate(id: string): Promise<boolean> {
-    const template = await prisma.annotationTemplate.findUnique({
-      where: { id },
+  async deleteTemplate(id: string, ownerId: number): Promise<boolean> {
+    const template = await prisma.annotationTemplate.findFirst({
+      where: { id, ownerId },
     });
 
     if (!template) {

@@ -61,7 +61,7 @@ router.get('/', async (req: Request, res: Response) => {
 router.get('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const image = await imageService.getImageById(id);
+    const image = await imageService.getImageById(id, req.user!.id);
 
     if (!image) {
       const response: ApiResponse = {
@@ -91,7 +91,7 @@ router.get('/:id', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await imageService.deleteImage(id);
+    const deleted = await imageService.deleteImage(id, req.user!.id);
 
     if (!deleted) {
       const response: ApiResponse = {

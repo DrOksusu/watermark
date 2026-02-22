@@ -163,7 +163,7 @@ router.put('/:id/activate', async (req: Request, res: Response) => {
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { id } = req.params;
-    const deleted = await logoService.deleteLogo(id);
+    const deleted = await logoService.deleteLogo(id, req.user!.id);
 
     if (!deleted) {
       const response: ApiResponse = {

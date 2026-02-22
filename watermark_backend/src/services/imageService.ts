@@ -78,16 +78,16 @@ export const imageService = {
     return images;
   },
 
-  async getImageById(id: string): Promise<ImageData | null> {
-    const image = await prisma.image.findUnique({
-      where: { id },
+  async getImageById(id: string, ownerId: number): Promise<ImageData | null> {
+    const image = await prisma.image.findFirst({
+      where: { id, ownerId },
     });
     return image;
   },
 
-  async deleteImage(id: string): Promise<boolean> {
-    const image = await prisma.image.findUnique({
-      where: { id },
+  async deleteImage(id: string, ownerId: number): Promise<boolean> {
+    const image = await prisma.image.findFirst({
+      where: { id, ownerId },
     });
 
     if (!image) {

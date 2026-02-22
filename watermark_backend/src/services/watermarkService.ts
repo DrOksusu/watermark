@@ -18,9 +18,10 @@ export const watermarkService = {
   async processImage(
     imageId: string,
     settings: WatermarkSettings,
-    outputSettings: OutputSettings
+    outputSettings: OutputSettings,
+    ownerId: number
   ): Promise<ProcessedImageResult | null> {
-    const image = await imageService.getImageById(imageId);
+    const image = await imageService.getImageById(imageId, ownerId);
     if (!image) return null;
 
     const imagePath = path.join(UPLOAD_PATHS.images, image.filename);
@@ -204,7 +205,8 @@ export const watermarkService = {
   async batchProcess(
     imageIds: string[],
     settings: WatermarkSettings,
-    outputSettings: OutputSettings
+    outputSettings: OutputSettings,
+    ownerId: number
   ): Promise<{
     processedCount: number;
     files: ProcessedImageResult[];
@@ -218,7 +220,7 @@ export const watermarkService = {
         filenamePrefix: `${outputSettings.filenamePrefix}${i + 1}_`,
       };
 
-      const result = await this.processImage(imageId, settings, customOutputSettings);
+      const result = await this.processImage(imageId, settings, customOutputSettings, ownerId);
       if (result) {
         files.push(result);
       }

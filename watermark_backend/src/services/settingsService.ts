@@ -51,9 +51,9 @@ export const settingsService = {
     return settings;
   },
 
-  async getSettingsById(id: string): Promise<SettingsData | null> {
-    const settings = await prisma.settings.findUnique({
-      where: { id },
+  async getSettingsById(id: string, ownerId: number): Promise<SettingsData | null> {
+    const settings = await prisma.settings.findFirst({
+      where: { id, ownerId },
     });
     return settings;
   },
@@ -90,9 +90,9 @@ export const settingsService = {
     return settings;
   },
 
-  async updateSettings(id: string, input: SettingsInput): Promise<SettingsData | null> {
-    const existing = await prisma.settings.findUnique({
-      where: { id },
+  async updateSettings(id: string, input: SettingsInput, ownerId: number): Promise<SettingsData | null> {
+    const existing = await prisma.settings.findFirst({
+      where: { id, ownerId },
     });
 
     if (!existing) {
@@ -122,9 +122,9 @@ export const settingsService = {
     return settings;
   },
 
-  async deleteSettings(id: string): Promise<boolean> {
-    const settings = await prisma.settings.findUnique({
-      where: { id },
+  async deleteSettings(id: string, ownerId: number): Promise<boolean> {
+    const settings = await prisma.settings.findFirst({
+      where: { id, ownerId },
     });
 
     if (!settings || settings.name === 'default') {
