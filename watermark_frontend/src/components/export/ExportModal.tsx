@@ -26,7 +26,6 @@ import { useLogoStore } from '@/stores/useLogoStore';
 import { useDateStore } from '@/stores/useDateStore';
 import { useAnnotationStore } from '@/stores/useAnnotationStore';
 import { useExportStore } from '@/stores/useExportStore';
-import { useCropStore } from '@/stores/useCropStore';
 import { Download, Loader2, FileArchive, Image as ImageIcon, Crop } from 'lucide-react';
 
 interface ExportModalProps {
@@ -45,7 +44,6 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
   const { text: dateText, position: datePosition, font, scale: dateScale, opacity: dateOpacity } = useDateStore();
   const { getAnnotations } = useAnnotationStore();
   const { settings, setSettings, isExporting, setIsExporting, progress, setProgress } = useExportStore();
-  const { enabled: cropEnabled, cropArea } = useCropStore();
 
   const [currentExporting, setCurrentExporting] = useState('');
 
@@ -81,7 +79,7 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
   };
 
   const exportSingleImageWithLogo = async (
-    imageFile: { id: string; url: string; name: string; width: number; height: number },
+    imageFile: { id: string; url: string; name: string; width: number; height: number; crop?: import('@/types').CropData },
     preloadedLogo: HTMLImageElement | null
   ): Promise<string> => {
     return new Promise((resolve) => {
@@ -92,17 +90,6 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
         return;
       }
 
-      const { width: exportWidth, height: exportHeight } = getExportDimensions(imageFile.width, imageFile.height);
-      canvas.width = exportWidth;
-      canvas.height = exportHeight;
-
-      // 리사이즈할 때 이미지를 중앙에 배치하기 위한 오프셋 계산
-      const imgScale = Math.min(exportWidth / imageFile.width, exportHeight / imageFile.height);
-      const scaledImgWidth = imageFile.width * imgScale;
-      const scaledImgHeight = imageFile.height * imgScale;
-      const offsetX = (exportWidth - scaledImgWidth) / 2;
-      const offsetY = (exportHeight - scaledImgHeight) / 2;
-
       const mainImg = new Image();
 
       mainImg.onerror = () => {
@@ -111,48 +98,101 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
       };
 
       mainImg.onload = () => {
-        // 배경을 흰색으로 채우기 (이미지가 캔버스보다 작을 경우)
+        // 유효 소스 영역 (크롭 있으면 크롭 영역, 없으면 전체)
+        const crop = imageFile.crop;
+        const srcX = crop ? crop.x * mainImg.width : 0;
+        const srcY = crop ? crop.y * mainImg.height : 0;
+        const srcW = crop ? crop.width * mainImg.width : mainImg.width;
+        const srcH = crop ? crop.height * mainImg.height : mainImg.height;
+
+        // 내보내기 크기 (잘린 후 크기 기준)
+        const { width: exportWidth, height: exportHeight } = getExportDimensions(srcW, srcH);
+        canvas.width = exportWidth;
+        canvas.height = exportHeight;
+
+        // letterbox 중앙 정렬
+        const imgScale = Math.min(exportWidth / srcW, exportHeight / srcH);
+        const drawW = srcW * imgScale;
+        const drawH = srcH * imgScale;
+        const offsetX = (exportWidth - drawW) / 2;
+        const offsetY = (exportHeight - drawH) / 2;
+
+        // 배경 흰색
         ctx.fillStyle = '#ffffff';
         ctx.fillRect(0, 0, exportWidth, exportHeight);
 
-        // 리사이즈된 이미지 그리기
-        ctx.drawImage(mainImg, offsetX, offsetY, scaledImgWidth, scaledImgHeight);
+        // 원본에서 소스 영역만 선택해 그리기 (crop 있으면 크롭 부분만)
+        ctx.drawImage(
+          mainImg,
+          srcX, srcY, srcW, srcH,
+          offsetX, offsetY, drawW, drawH,
+        );
 
-        // 미리 로드된 로고 이미지 사용 - 이미지 너비 기준 (logoScale=1.0 이면 이미지 너비와 동일)
+        // 로고 그리기 — 크롭 기준 좌표 변환
         if (preloadedLogo && logo) {
-          ctx.globalAlpha = logoOpacity;
-          const logoX = offsetX + logoPosition.x * scaledImgWidth;
-          const logoY = offsetY + logoPosition.y * scaledImgHeight;
-          // 로고 가로세로 비율 유지
-          const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
-          // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
-          const logoW = scaledImgWidth * logoScale;
-          const logoH = logoW * logoAspectRatio;
-          ctx.drawImage(
-            preloadedLogo,
-            logoX,
-            logoY,
-            logoW,
-            logoH
-          );
-          ctx.globalAlpha = 1;
+          const logoXInCrop = crop
+            ? (logoPosition.x - crop.x) / crop.width
+            : logoPosition.x;
+          const logoYInCrop = crop
+            ? (logoPosition.y - crop.y) / crop.height
+            : logoPosition.y;
+
+          // 크롭 영역 내에 있을 때만 그림
+          if (
+            logoXInCrop >= 0 && logoXInCrop <= 1 &&
+            logoYInCrop >= 0 && logoYInCrop <= 1
+          ) {
+            ctx.globalAlpha = logoOpacity;
+            const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
+            const logoW = drawW * logoScale;
+            const logoH = logoW * logoAspectRatio;
+            const logoPxX = offsetX + logoXInCrop * drawW;
+            const logoPxY = offsetY + logoYInCrop * drawH;
+            ctx.drawImage(preloadedLogo, logoPxX, logoPxY, logoW, logoH);
+            ctx.globalAlpha = 1;
+          }
         }
 
-        // 날짜 텍스트 그리기 - 5글자(22.03) 기준으로 폰트 크기 계산 (dateScale=1.0 이면 5글자가 이미지 너비를 채움)
+        // 날짜 텍스트 — 크롭 기준 좌표 변환
         if (dateText && font) {
-          ctx.globalAlpha = dateOpacity;
-          const scaledFontSize = scaledImgWidth * dateScale / 3;
-          ctx.font = buildFontString(scaledFontSize, font.family);
-          ctx.fillStyle = font.color;
-          const dateX = offsetX + datePosition.x * scaledImgWidth;
-          const dateY = offsetY + datePosition.y * scaledImgHeight;
-          ctx.fillText(dateText, dateX, dateY + scaledFontSize);
-          ctx.globalAlpha = 1;
+          const dateXInCrop = crop
+            ? (datePosition.x - crop.x) / crop.width
+            : datePosition.x;
+          const dateYInCrop = crop
+            ? (datePosition.y - crop.y) / crop.height
+            : datePosition.y;
+
+          if (
+            dateXInCrop >= 0 && dateXInCrop <= 1 &&
+            dateYInCrop >= 0 && dateYInCrop <= 1
+          ) {
+            ctx.globalAlpha = dateOpacity;
+            const scaledFontSize = drawW * dateScale / 3;
+            ctx.font = buildFontString(scaledFontSize, font.family);
+            ctx.fillStyle = font.color;
+            const dateX = offsetX + dateXInCrop * drawW;
+            const dateY = offsetY + dateYInCrop * drawH;
+            ctx.fillText(dateText, dateX, dateY + scaledFontSize);
+            ctx.globalAlpha = 1;
+          }
         }
 
-        // 주석 그리기
+        // 주석 그리기 — annotation.position은 원본 이미지 픽셀 기준
         const imageAnnotations = getAnnotations(imageFile.id);
         imageAnnotations.forEach((annotation) => {
+          // 크롭 기준으로 좌표 변환 (0-1)
+          const annXInCrop = crop
+            ? (annotation.position.x - srcX) / srcW
+            : annotation.position.x / mainImg.width;
+          const annYInCrop = crop
+            ? (annotation.position.y - srcY) / srcH
+            : annotation.position.y / mainImg.height;
+
+          // 크롭 영역 밖이면 스킵
+          if (annXInCrop < 0 || annXInCrop > 1 || annYInCrop < 0 || annYInCrop > 1) {
+            return;
+          }
+
           ctx.strokeStyle = annotation.style.color;
           ctx.lineWidth = annotation.style.thickness * imgScale;
           ctx.fillStyle = annotation.style.color;
@@ -163,33 +203,34 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             ctx.setLineDash([]);
           }
 
+          const annPxX = offsetX + annXInCrop * drawW;
+          const annPxY = offsetY + annYInCrop * drawH;
+
           if (annotation.type === 'box' || annotation.type === 'dashed-box') {
             const radius = annotation.style.borderRadius * imgScale;
-            const ax = offsetX + annotation.position.x * imgScale;
-            const ay = offsetY + annotation.position.y * imgScale;
             const aw = annotation.size.width * imgScale;
             const ah = annotation.size.height * imgScale;
 
             if (radius > 0) {
               ctx.beginPath();
-              ctx.moveTo(ax + radius, ay);
-              ctx.lineTo(ax + aw - radius, ay);
-              ctx.quadraticCurveTo(ax + aw, ay, ax + aw, ay + radius);
-              ctx.lineTo(ax + aw, ay + ah - radius);
-              ctx.quadraticCurveTo(ax + aw, ay + ah, ax + aw - radius, ay + ah);
-              ctx.lineTo(ax + radius, ay + ah);
-              ctx.quadraticCurveTo(ax, ay + ah, ax, ay + ah - radius);
-              ctx.lineTo(ax, ay + radius);
-              ctx.quadraticCurveTo(ax, ay, ax + radius, ay);
+              ctx.moveTo(annPxX + radius, annPxY);
+              ctx.lineTo(annPxX + aw - radius, annPxY);
+              ctx.quadraticCurveTo(annPxX + aw, annPxY, annPxX + aw, annPxY + radius);
+              ctx.lineTo(annPxX + aw, annPxY + ah - radius);
+              ctx.quadraticCurveTo(annPxX + aw, annPxY + ah, annPxX + aw - radius, annPxY + ah);
+              ctx.lineTo(annPxX + radius, annPxY + ah);
+              ctx.quadraticCurveTo(annPxX, annPxY + ah, annPxX, annPxY + ah - radius);
+              ctx.lineTo(annPxX, annPxY + radius);
+              ctx.quadraticCurveTo(annPxX, annPxY, annPxX + radius, annPxY);
               ctx.closePath();
               ctx.stroke();
             } else {
-              ctx.strokeRect(ax, ay, aw, ah);
+              ctx.strokeRect(annPxX, annPxY, aw, ah);
             }
           } else if (annotation.type === 'dashed-circle') {
             ctx.setLineDash([10 * imgScale, 5 * imgScale]);
-            const cx = offsetX + (annotation.position.x + annotation.size.width / 2) * imgScale;
-            const cy = offsetY + (annotation.position.y + annotation.size.height / 2) * imgScale;
+            const cx = annPxX + (annotation.size.width / 2) * imgScale;
+            const cy = annPxY + (annotation.size.height / 2) * imgScale;
             const rx = (annotation.size.width / 2) * imgScale;
             const ry = (annotation.size.height / 2) * imgScale;
 
@@ -200,8 +241,8 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             const pts = annotation.points;
             const dx = pts[2] * imgScale;
             const dy = pts[3] * imgScale;
-            const startX = offsetX + annotation.position.x * imgScale;
-            const startY = offsetY + annotation.position.y * imgScale;
+            const startX = annPxX;
+            const startY = annPxY;
             const endX = startX + dx;
             const endY = startY + dy;
 
@@ -216,48 +257,24 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             ctx.moveTo(endX, endY);
             ctx.lineTo(
               endX - headLength * Math.cos(angle - Math.PI / 6),
-              endY - headLength * Math.sin(angle - Math.PI / 6)
+              endY - headLength * Math.sin(angle - Math.PI / 6),
             );
             ctx.moveTo(endX, endY);
             ctx.lineTo(
               endX - headLength * Math.cos(angle + Math.PI / 6),
-              endY - headLength * Math.sin(angle + Math.PI / 6)
+              endY - headLength * Math.sin(angle + Math.PI / 6),
             );
             ctx.stroke();
           } else if (annotation.type === 'text' && annotation.text) {
             ctx.setLineDash([]);
             const fontSize = 16 * imgScale;
             ctx.font = fontSize + 'px sans-serif';
-            ctx.fillText(annotation.text, offsetX + annotation.position.x * imgScale, offsetY + annotation.position.y * imgScale + fontSize);
+            ctx.fillText(annotation.text, annPxX, annPxY + fontSize);
           }
         });
 
         const mimeType = settings.format === 'png' ? 'image/png' : 'image/jpeg';
         const quality = settings.quality / 100;
-
-        // 크롭이 활성화된 경우 크롭 적용
-        if (cropEnabled) {
-          const cropCanvas = document.createElement('canvas');
-          const cropCtx = cropCanvas.getContext('2d');
-          if (cropCtx) {
-            // 크롭 영역 계산 (이미지 기준)
-            const cropX = offsetX + cropArea.x * scaledImgWidth;
-            const cropY = offsetY + cropArea.y * scaledImgHeight;
-            const cropW = cropArea.width * scaledImgWidth;
-            const cropH = cropArea.height * scaledImgHeight;
-
-            cropCanvas.width = cropW;
-            cropCanvas.height = cropH;
-
-            // 크롭된 영역만 새 캔버스에 그리기
-            cropCtx.drawImage(canvas, cropX, cropY, cropW, cropH, 0, 0, cropW, cropH);
-
-            const dataUrl = cropCanvas.toDataURL(mimeType, quality);
-            resolve(dataUrl);
-            return;
-          }
-        }
-
         const dataUrl = canvas.toDataURL(mimeType, quality);
         resolve(dataUrl);
       };
@@ -480,10 +497,10 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
             <p className="text-xs text-muted-foreground">
               사이즈: {settings.size === 'original' ? '원본 크기' : settings.size.replace('x', ' x ') + ' px'}
             </p>
-            {cropEnabled && (
+            {images.some((img) => img.crop) && (
               <p className="text-xs text-muted-foreground flex items-center gap-1">
                 <Crop className="h-3 w-3" />
-                크롭 적용됨 ({Math.round(cropArea.width * 100)}% x {Math.round(cropArea.height * 100)}%)
+                크롭 적용된 이미지: {images.filter((img) => img.crop).length} / {images.length}개
               </p>
             )}
           </div>
