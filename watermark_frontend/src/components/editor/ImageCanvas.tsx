@@ -186,7 +186,13 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         const pos = stage.getPointerPosition();
         if (!pos) return;
 
-        const adjustedPos = { x: pos.x / scale, y: pos.y / scale };
+        if (!mainImage) return;
+        const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
+        const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
+        const adjustedPos = {
+          x: pos.x / scale + cropOffsetX,
+          y: pos.y / scale + cropOffsetY,
+        };
         setIsDrawing(true);
         setDrawStart(adjustedPos);
 
@@ -212,7 +218,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         }
       }
     },
-    [selectedTool, selectedImageId, scale, toolSettings, addAnnotation, setSelectedAnnotation, setTool]
+    [selectedTool, selectedImageId, scale, toolSettings, addAnnotation, setSelectedAnnotation, setTool, mainImage, activeCrop]
   );
 
   const handleStageMouseMove = useCallback(
@@ -225,7 +231,13 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       const pos = stage.getPointerPosition();
       if (!pos) return;
 
-      const adjustedPos = { x: pos.x / scale, y: pos.y / scale };
+      if (!mainImage) return;
+      const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
+      const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
+      const adjustedPos = {
+        x: pos.x / scale + cropOffsetX,
+        y: pos.y / scale + cropOffsetY,
+      };
 
       if (selectedTool === 'arrow') {
         setTempAnnotation({
@@ -258,7 +270,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         });
       }
     },
-    [isDrawing, drawStart, selectedTool, scale, toolSettings]
+    [isDrawing, drawStart, selectedTool, scale, toolSettings, mainImage, activeCrop]
   );
 
   const handleStageMouseUp = useCallback(() => {
@@ -421,25 +433,34 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
   const handleAnnotationDragEnd = useCallback(
     (annotationId: string, e: KonvaEventObject<DragEvent>) => {
-      if (!selectedImageId) return;
+      if (!selectedImageId || !mainImage) return;
+      const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
+      const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
       updateAnnotation(selectedImageId, annotationId, {
         position: {
-          x: e.target.x() / scale,
-          y: e.target.y() / scale,
+          x: e.target.x() / scale + cropOffsetX,
+          y: e.target.y() / scale + cropOffsetY,
         },
       });
     },
-    [selectedImageId, scale, updateAnnotation]
+    [selectedImageId, scale, updateAnnotation, mainImage, activeCrop]
   );
 
   const renderAnnotation = (annotation: Annotation) => {
+    if (!mainImage) return null;
     const { id, type, position, size, style, text, points } = annotation;
+    // 주석 좌표를 표시 좌표로 변환 (크롭 적용 고려)
+    // annotation.position은 원본 이미지 픽셀 기준
+    const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
+    const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
+    const displayPosX = (position.x - cropOffsetX) * scale;
+    const displayPosY = (position.y - cropOffsetY) * scale;
     const isSelected = selectedAnnotationId === id;
 
     const commonProps = {
       id,
-      x: position.x * scale,
-      y: position.y * scale,
+      x: displayPosX,
+      y: displayPosY,
       draggable: !selectedTool,
       onClick: () => setSelectedAnnotation(id),
       onDragEnd: (e: KonvaEventObject<DragEvent>) => handleAnnotationDragEnd(id, e),
@@ -492,8 +513,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         <Ellipse
           key={id}
           {...commonProps}
-          x={(position.x + size.width / 2) * scale}
-          y={(position.y + size.height / 2) * scale}
+          x={displayPosX + (size.width / 2) * scale}
+          y={displayPosY + (size.height / 2) * scale}
           radiusX={(size.width / 2) * scale}
           radiusY={(size.height / 2) * scale}
           stroke={style.color}
@@ -507,15 +528,21 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   };
 
   const renderTempAnnotation = () => {
-    if (!tempAnnotation) return null;
+    if (!tempAnnotation || !mainImage) return null;
 
     const { type, position, size, style, points } = tempAnnotation;
+    if (!position) return null;
+
+    const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
+    const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
+    const tempDisplayX = (position.x - cropOffsetX) * scale;
+    const tempDisplayY = (position.y - cropOffsetY) * scale;
 
     if (type === 'arrow' && points && position) {
       return (
         <Arrow
-          x={position.x * scale}
-          y={position.y * scale}
+          x={tempDisplayX}
+          y={tempDisplayY}
           points={points.map((p) => p * scale)}
           stroke={style?.color || '#FF0000'}
           strokeWidth={style?.thickness || 2}
@@ -529,8 +556,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     if ((type === 'box' || type === 'dashed-box') && position && size) {
       return (
         <Rect
-          x={position.x * scale}
-          y={position.y * scale}
+          x={tempDisplayX}
+          y={tempDisplayY}
           width={size.width * scale}
           height={size.height * scale}
           stroke={style?.color || '#FF0000'}
@@ -544,8 +571,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     if (type === 'dashed-circle' && position && size) {
       return (
         <Ellipse
-          x={(position.x + size.width / 2) * scale}
-          y={(position.y + size.height / 2) * scale}
+          x={tempDisplayX + (size.width / 2) * scale}
+          y={tempDisplayY + (size.height / 2) * scale}
           radiusX={(size.width / 2) * scale}
           radiusY={(size.height / 2) * scale}
           stroke={style?.color || '#FF0000'}
