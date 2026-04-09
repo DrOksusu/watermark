@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { v4 as uuidv4 } from 'uuid';
-import { ImageFile } from '@/types';
+import { ImageFile, CropData } from '@/types';
 
 interface ImageStore {
   images: ImageFile[];
@@ -9,6 +9,7 @@ interface ImageStore {
   removeImage: (id: string) => void;
   selectImage: (id: string) => void;
   clearImages: () => void;
+  setImageCrop: (id: string, crop: CropData | null) => void;
 }
 
 const loadImage = (file: File): Promise<{ width: number; height: number; url: string }> => {
@@ -79,5 +80,19 @@ export const useImageStore = create<ImageStore>((set, get) => ({
     const { images } = get();
     images.forEach((img) => URL.revokeObjectURL(img.url));
     set({ images: [], selectedImageId: null });
+  },
+
+  setImageCrop: (id: string, crop: CropData | null) => {
+    set((state) => ({
+      images: state.images.map((img) => {
+        if (img.id !== id) return img;
+        if (crop === null) {
+          // crop 필드 제거
+          const { crop: _removed, ...rest } = img;
+          return rest;
+        }
+        return { ...img, crop };
+      }),
+    }));
   },
 }));
