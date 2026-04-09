@@ -61,6 +61,12 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   const selectedImage = images.find((img) => img.id === selectedImageId);
   // 크롭 적용 상태 판단: 편집 중이면 원본 전체 표시, 아니면 selectedImage.crop 사용
   const activeCrop = cropIsEditing ? null : selectedImage?.crop ?? null;
+  // 크롭 적용 시 유효 이미지 너비 (로고/날짜 크기 계산 기준)
+  const effectiveW = mainImage
+    ? activeCrop
+      ? activeCrop.width * mainImage.width
+      : mainImage.width
+    : 0;
   const templateImage = images[0]; // 첫 번째 이미지가 템플릿
   const annotations = selectedImageId ? getAnnotations(selectedImageId) : [];
 
@@ -626,8 +632,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           {logoImage && mainImage && (() => {
             // 로고 가로세로 비율 유지
             const logoAspectRatio = logoImage.height / logoImage.width;
-            // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
-            const logoWidth = mainImage.width * logoScale * scale;
+            // 로고 너비 = 유효 이미지 너비 * logoScale (크롭 적용 시 크롭 너비 기준)
+            const logoWidth = effectiveW * logoScale * scale;
             const logoHeight = logoWidth * logoAspectRatio;
             const logoX = activeCrop
               ? (logoPosition.x - activeCrop.x) * mainImage.width * scale
@@ -674,11 +680,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
               text={dateText}
               x={(activeCrop ? datePosition.x - activeCrop.x : datePosition.x) * mainImage.width * scale}
               y={(activeCrop ? datePosition.y - activeCrop.y : datePosition.y) * mainImage.height * scale}
-              fontSize={(mainImage.width * dateScale / 3) * scale}
+              fontSize={(effectiveW * dateScale / 3) * scale}
               fontFamily={font.family}
               fill={font.color}
               opacity={dateOpacity}
-              width={dateWidth ? dateWidth * mainImage.width * scale : undefined}
+              width={dateWidth ? dateWidth * effectiveW * scale : undefined}
               wrap="char"
               draggable={!selectedTool}
               onClick={() => setSelectedElement('dateText')}
