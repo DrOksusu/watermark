@@ -15,6 +15,7 @@ export interface ImageFile {
   url: string;
   width: number;
   height: number;
+  crop?: CropData;  // 이미지별 크롭 메타데이터 (없으면 크롭 없음)
 }
 
 export interface LogoFile {
@@ -81,4 +82,14 @@ export interface ExportSettings {
   format: 'jpg' | 'png';
   quality: number;
   size: ExportSize;
+}
+
+export type CropAspectRatio = 'free' | '1:1' | '4:3' | '3:4' | '16:9';
+
+export interface CropData {
+  x: number;          // 0-1 (이미지 너비 대비)
+  y: number;          // 0-1 (이미지 높이 대비)
+  width: number;      // 0-1
+  height: number;     // 0-1
+  aspectRatio: CropAspectRatio;
 }
