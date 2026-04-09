@@ -71,6 +71,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       img.src = selectedImage.url;
       img.onload = () => setMainImage(img);
     } else {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMainImage(null);
     }
   }, [selectedImage]);
@@ -93,6 +94,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       img.src = logoUrl;
     } else {
       console.log('No logo to load, clearing logo image');
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLogoImage(null);
     }
   }, [logoUrl]);
