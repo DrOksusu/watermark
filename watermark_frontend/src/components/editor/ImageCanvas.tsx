@@ -50,7 +50,13 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     setSelectedAnnotation,
     setTool,
   } = useAnnotationStore();
-  const { enabled: cropEnabled, cropArea, setCropArea, isAdjusting: isCropAdjusting, setIsAdjusting: setIsCropAdjusting } = useCropStore();
+  const {
+    isEditing: cropIsEditing,
+    editingImageId: cropEditingImageId,
+    draft: cropDraft,
+    updateDraft: updateCropDraft,
+    replaceDraft: replaceCropDraft,
+  } = useCropStore();
 
   const selectedImage = images.find((img) => img.id === selectedImageId);
   const templateImage = images[0]; // 첫 번째 이미지가 템플릿
@@ -140,17 +146,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     transformerRef.current.getLayer()?.batchDraw();
   }, [selectedElement, selectedAnnotationId, stageRef]);
 
-  // Update crop transformer
+  // Update crop transformer — 현재 선택된 이미지가 편집 대상일 때만 활성
+  const cropEditingActive =
+    cropIsEditing && cropEditingImageId === selectedImageId && cropDraft !== null;
+
   useEffect(() => {
     if (!cropTransformerRef.current || !cropRectRef.current) return;
 
-    if (cropEnabled) {
+    if (cropEditingActive) {
       cropTransformerRef.current.nodes([cropRectRef.current]);
     } else {
       cropTransformerRef.current.nodes([]);
     }
     cropTransformerRef.current.getLayer()?.batchDraw();
-  }, [cropEnabled]);
+  }, [cropEditingActive]);
 
   const handleStageMouseDown = useCallback(
     (e: KonvaEventObject<MouseEvent>) => {
@@ -647,43 +656,39 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
           {/* Temporary Annotation while drawing */}
           {renderTempAnnotation()}
 
-          {/* Crop Overlay */}
-          {cropEnabled && mainImage && (
+          {/* Crop Overlay (편집 모드에서만 표시) */}
+          {cropEditingActive && cropDraft && mainImage && (
             <Group>
               {/* 어두운 영역 (크롭 영역 바깥) */}
-              {/* 상단 */}
               <Rect
                 x={0}
                 y={0}
                 width={mainImage.width * scale}
-                height={cropArea.y * mainImage.height * scale}
+                height={cropDraft.y * mainImage.height * scale}
                 fill="rgba(0, 0, 0, 0.5)"
                 listening={false}
               />
-              {/* 하단 */}
               <Rect
                 x={0}
-                y={(cropArea.y + cropArea.height) * mainImage.height * scale}
+                y={(cropDraft.y + cropDraft.height) * mainImage.height * scale}
                 width={mainImage.width * scale}
-                height={(1 - cropArea.y - cropArea.height) * mainImage.height * scale}
+                height={(1 - cropDraft.y - cropDraft.height) * mainImage.height * scale}
                 fill="rgba(0, 0, 0, 0.5)"
                 listening={false}
               />
-              {/* 좌측 */}
               <Rect
                 x={0}
-                y={cropArea.y * mainImage.height * scale}
-                width={cropArea.x * mainImage.width * scale}
-                height={cropArea.height * mainImage.height * scale}
+                y={cropDraft.y * mainImage.height * scale}
+                width={cropDraft.x * mainImage.width * scale}
+                height={cropDraft.height * mainImage.height * scale}
                 fill="rgba(0, 0, 0, 0.5)"
                 listening={false}
               />
-              {/* 우측 */}
               <Rect
-                x={(cropArea.x + cropArea.width) * mainImage.width * scale}
-                y={cropArea.y * mainImage.height * scale}
-                width={(1 - cropArea.x - cropArea.width) * mainImage.width * scale}
-                height={cropArea.height * mainImage.height * scale}
+                x={(cropDraft.x + cropDraft.width) * mainImage.width * scale}
+                y={cropDraft.y * mainImage.height * scale}
+                width={(1 - cropDraft.x - cropDraft.width) * mainImage.width * scale}
+                height={cropDraft.height * mainImage.height * scale}
                 fill="rgba(0, 0, 0, 0.5)"
                 listening={false}
               />
@@ -691,20 +696,28 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
               <Rect
                 ref={cropRectRef}
                 id="crop-rect"
-                x={cropArea.x * mainImage.width * scale}
-                y={cropArea.y * mainImage.height * scale}
-                width={cropArea.width * mainImage.width * scale}
-                height={cropArea.height * mainImage.height * scale}
+                x={cropDraft.x * mainImage.width * scale}
+                y={cropDraft.y * mainImage.height * scale}
+                width={cropDraft.width * mainImage.width * scale}
+                height={cropDraft.height * mainImage.height * scale}
                 stroke="#ffffff"
                 strokeWidth={2}
                 dash={[5, 5]}
                 draggable
                 onDragEnd={(e) => {
-                  const newX = Math.max(0, Math.min(1 - cropArea.width, e.target.x() / scale / mainImage.width));
-                  const newY = Math.max(0, Math.min(1 - cropArea.height, e.target.y() / scale / mainImage.height));
-                  setCropArea({ x: newX, y: newY });
+                  if (!cropDraft) return;
+                  const newX = Math.max(
+                    0,
+                    Math.min(1 - cropDraft.width, e.target.x() / scale / mainImage.width),
+                  );
+                  const newY = Math.max(
+                    0,
+                    Math.min(1 - cropDraft.height, e.target.y() / scale / mainImage.height),
+                  );
+                  updateCropDraft({ x: newX, y: newY });
                 }}
                 onTransformEnd={(e) => {
+                  if (!cropDraft) return;
                   const node = e.target;
                   const scaleX = node.scaleX();
                   const scaleY = node.scaleY();
@@ -714,18 +727,34 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
                   const newX = Math.max(0, node.x() / scale / mainImage.width);
                   const newY = Math.max(0, node.y() / scale / mainImage.height);
-                  const newWidth = Math.min(1 - newX, (node.width() * scaleX) / scale / mainImage.width);
-                  const newHeight = Math.min(1 - newY, (node.height() * scaleY) / scale / mainImage.height);
+                  const newWidth = Math.min(
+                    1 - newX,
+                    (node.width() * scaleX) / scale / mainImage.width,
+                  );
+                  const newHeight = Math.min(
+                    1 - newY,
+                    (node.height() * scaleY) / scale / mainImage.height,
+                  );
 
-                  setCropArea({ x: newX, y: newY, width: newWidth, height: newHeight });
+                  replaceCropDraft({
+                    ...cropDraft,
+                    x: newX,
+                    y: newY,
+                    width: newWidth,
+                    height: newHeight,
+                  });
                 }}
               />
-              {/* Crop Transformer */}
+              {/* Crop Transformer — 비율 잠금 동적 */}
               <Transformer
                 ref={cropTransformerRef}
                 rotateEnabled={false}
-                keepRatio={false}
-                enabledAnchors={['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']}
+                keepRatio={cropDraft.aspectRatio !== 'free'}
+                enabledAnchors={
+                  cropDraft.aspectRatio === 'free'
+                    ? ['top-left', 'top-right', 'bottom-left', 'bottom-right', 'middle-left', 'middle-right', 'top-center', 'bottom-center']
+                    : ['top-left', 'top-right', 'bottom-left', 'bottom-right']
+                }
                 boundBoxFunc={(oldBox, newBox) => {
                   if (newBox.width < 20 || newBox.height < 20) {
                     return oldBox;
