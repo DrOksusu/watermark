@@ -59,6 +59,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   } = useCropStore();
 
   const selectedImage = images.find((img) => img.id === selectedImageId);
+  // 크롭 적용 상태 판단: 편집 중이면 원본 전체 표시, 아니면 selectedImage.crop 사용
+  const activeCrop = cropIsEditing ? null : selectedImage?.crop ?? null;
   const templateImage = images[0]; // 첫 번째 이미지가 템플릿
   const annotations = selectedImageId ? getAnnotations(selectedImageId) : [];
 
@@ -103,15 +105,22 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         const containerWidth = container.clientWidth;
         const containerHeight = container.clientHeight;
 
-        const scaleX = containerWidth / mainImage.width;
-        const scaleY = containerHeight / mainImage.height;
-        // 작은 이미지도 확대하여 캔버스 영역에 맞춤 (모든 이미지가 비슷한 크기로 표시)
+        // 크롭이 적용된 상태면 크롭 영역 크기로 스케일 계산
+        const effectiveW = activeCrop
+          ? activeCrop.width * mainImage.width
+          : mainImage.width;
+        const effectiveH = activeCrop
+          ? activeCrop.height * mainImage.height
+          : mainImage.height;
+
+        const scaleX = containerWidth / effectiveW;
+        const scaleY = containerHeight / effectiveH;
         const newScale = Math.min(scaleX, scaleY);
 
         setScale(newScale);
         setContainerSize({
-          width: mainImage.width * newScale,
-          height: mainImage.height * newScale,
+          width: effectiveW * newScale,
+          height: effectiveH * newScale,
         });
       }
     };
@@ -119,7 +128,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     updateSize();
     window.addEventListener('resize', updateSize);
     return () => window.removeEventListener('resize', updateSize);
-  }, [mainImage]);
+  }, [mainImage, activeCrop]);
 
   // Update transformer based on selected element
   useEffect(() => {
@@ -276,9 +285,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         console.warn('handleLogoDragEnd: mainImage is null');
         return;
       }
-      // 비율(0~1)로 변환하여 저장
-      const newX = e.target.x() / scale / mainImage.width;
-      const newY = e.target.y() / scale / mainImage.height;
+      // 비율(0~1)로 변환하여 저장 (크롭이 적용된 상태면 오프셋 역변환)
+      const rawX = e.target.x() / scale / mainImage.width;
+      const rawY = e.target.y() / scale / mainImage.height;
+      const newX = activeCrop ? rawX + activeCrop.x : rawX;
+      const newY = activeCrop ? rawY + activeCrop.y : rawY;
       console.log('handleLogoDragEnd:', {
         rawX: e.target.x(),
         rawY: e.target.y(),
@@ -290,7 +301,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       });
       setLogoPosition({ x: newX, y: newY });
     },
-    [scale, mainImage, setLogoPosition]
+    [scale, mainImage, setLogoPosition, activeCrop]
   );
 
   const handleDateDragEnd = useCallback(
@@ -299,9 +310,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         console.warn('handleDateDragEnd: mainImage is null');
         return;
       }
-      // 비율(0~1)로 변환하여 저장
-      const newX = e.target.x() / scale / mainImage.width;
-      const newY = e.target.y() / scale / mainImage.height;
+      // 비율(0~1)로 변환하여 저장 (크롭이 적용된 상태면 오프셋 역변환)
+      const rawX = e.target.x() / scale / mainImage.width;
+      const rawY = e.target.y() / scale / mainImage.height;
+      const newX = activeCrop ? rawX + activeCrop.x : rawX;
+      const newY = activeCrop ? rawY + activeCrop.y : rawY;
       console.log('handleDateDragEnd:', {
         rawX: e.target.x(),
         rawY: e.target.y(),
@@ -313,7 +326,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       });
       setDatePosition({ x: newX, y: newY });
     },
-    [scale, mainImage, setDatePosition]
+    [scale, mainImage, setDatePosition, activeCrop]
   );
 
   // 텍스트 크기 변환 완료 핸들러
@@ -329,9 +342,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       const currentWidth = node.width() * scaleX;
       const newWidth = currentWidth / scale / mainImage.width;
 
-      // 위치도 업데이트
-      const newX = node.x() / scale / mainImage.width;
-      const newY = node.y() / scale / mainImage.height;
+      // 위치도 업데이트 (크롭이 적용된 상태면 오프셋 역변환)
+      const rawX = node.x() / scale / mainImage.width;
+      const rawY = node.y() / scale / mainImage.height;
+      const newX = activeCrop ? rawX + activeCrop.x : rawX;
+      const newY = activeCrop ? rawY + activeCrop.y : rawY;
 
       // scaleX와 scaleY가 거의 같으면 모서리 핸들 (비율 유지 크기 조절)
       // 다르면 좌우 핸들 (너비만 조절)
@@ -366,7 +381,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
       setDatePosition({ x: newX, y: newY });
     },
-    [mainImage, scale, dateScale, setDateScale, setDateWidth, setDatePosition]
+    [mainImage, scale, dateScale, setDateScale, setDateWidth, setDatePosition, activeCrop]
   );
 
   // 로고 크기 변환 완료 핸들러
@@ -384,9 +399,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       node.scaleX(1);
       node.scaleY(1);
 
-      // 위치도 업데이트
-      const newX = node.x() / scale / mainImage.width;
-      const newY = node.y() / scale / mainImage.height;
+      // 위치도 업데이트 (크롭이 적용된 상태면 오프셋 역변환)
+      const rawX = node.x() / scale / mainImage.width;
+      const rawY = node.y() / scale / mainImage.height;
+      const newX = activeCrop ? rawX + activeCrop.x : rawX;
+      const newY = activeCrop ? rawY + activeCrop.y : rawY;
 
       console.log('handleLogoTransformEnd:', {
         scaleX,
@@ -399,7 +416,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       setLogoScale(newLogoScale);
       setLogoPosition({ x: newX, y: newY });
     },
-    [mainImage, scale, logoScale, setLogoScale, setLogoPosition]
+    [mainImage, scale, logoScale, setLogoScale, setLogoPosition, activeCrop]
   );
 
   const handleAnnotationDragEnd = useCallback(
@@ -567,9 +584,11 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         style={{ cursor: selectedTool ? 'crosshair' : 'default' }}
       >
         <Layer>
-          {/* Main Image */}
+          {/* Main Image — activeCrop 있으면 음수 오프셋으로 이동해 Stage에서 자동 클리핑 */}
           <KonvaImage
             image={mainImage}
+            x={activeCrop ? -activeCrop.x * mainImage.width * scale : 0}
+            y={activeCrop ? -activeCrop.y * mainImage.height * scale : 0}
             width={mainImage.width * scale}
             height={mainImage.height * scale}
           />
@@ -581,8 +600,12 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             // 로고 너비 = 이미지 너비 * logoScale (100% = 이미지 너비와 동일)
             const logoWidth = mainImage.width * logoScale * scale;
             const logoHeight = logoWidth * logoAspectRatio;
-            const logoX = logoPosition.x * mainImage.width * scale;
-            const logoY = logoPosition.y * mainImage.height * scale;
+            const logoX = activeCrop
+              ? (logoPosition.x - activeCrop.x) * mainImage.width * scale
+              : logoPosition.x * mainImage.width * scale;
+            const logoY = activeCrop
+              ? (logoPosition.y - activeCrop.y) * mainImage.height * scale
+              : logoPosition.y * mainImage.height * scale;
 
             console.log('Rendering logo:', {
               logoImage: !!logoImage,
@@ -620,8 +643,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             <Text
               ref={dateTextRef}
               text={dateText}
-              x={datePosition.x * mainImage.width * scale}
-              y={datePosition.y * mainImage.height * scale}
+              x={(activeCrop ? datePosition.x - activeCrop.x : datePosition.x) * mainImage.width * scale}
+              y={(activeCrop ? datePosition.y - activeCrop.y : datePosition.y) * mainImage.height * scale}
               fontSize={(mainImage.width * dateScale / 3) * scale}
               fontFamily={font.family}
               fill={font.color}
