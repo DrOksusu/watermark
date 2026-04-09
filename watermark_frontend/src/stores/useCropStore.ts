@@ -1,53 +1,61 @@
 import { create } from 'zustand';
-
-interface CropArea {
-  x: number;      // 0-1 비율 (이미지 너비 대비)
-  y: number;      // 0-1 비율 (이미지 높이 대비)
-  width: number;  // 0-1 비율
-  height: number; // 0-1 비율
-}
+import { CropData } from '@/types';
+import { DEFAULT_CROP_AREA } from '@/lib/cropUtils';
 
 interface CropStore {
-  enabled: boolean;
-  cropArea: CropArea;
-  isAdjusting: boolean;
-  setEnabled: (enabled: boolean) => void;
-  setCropArea: (area: Partial<CropArea>) => void;
-  setIsAdjusting: (isAdjusting: boolean) => void;
-  reset: () => void;
+  isEditing: boolean;
+  editingImageId: string | null;
+  draft: CropData | null;
+
+  /**
+   * 편집 모드 진입. initialCrop이 있으면 그 값을, 없으면 DEFAULT_CROP_AREA를 draft로 설정.
+   */
+  enterEdit: (imageId: string, initialCrop: CropData | null) => void;
+
+  /**
+   * draft의 일부 필드만 갱신.
+   */
+  updateDraft: (patch: Partial<CropData>) => void;
+
+  /**
+   * draft 전체 교체 (비율 프리셋 전환 등에 사용).
+   */
+  replaceDraft: (draft: CropData) => void;
+
+  /**
+   * 편집 모드 종료. draft 폐기.
+   */
+  exitEdit: () => void;
 }
 
-const DEFAULT_CROP_AREA: CropArea = {
-  x: 0.1,
-  y: 0.1,
-  width: 0.8,
-  height: 0.8,
-};
-
 export const useCropStore = create<CropStore>((set) => ({
-  enabled: false,
-  cropArea: DEFAULT_CROP_AREA,
-  isAdjusting: false,
+  isEditing: false,
+  editingImageId: null,
+  draft: null,
 
-  setEnabled: (enabled: boolean) => {
-    set({ enabled });
+  enterEdit: (imageId, initialCrop) => {
+    set({
+      isEditing: true,
+      editingImageId: imageId,
+      draft: initialCrop ? { ...initialCrop } : { ...DEFAULT_CROP_AREA },
+    });
   },
 
-  setCropArea: (area: Partial<CropArea>) => {
+  updateDraft: (patch) => {
     set((state) => ({
-      cropArea: { ...state.cropArea, ...area },
+      draft: state.draft ? { ...state.draft, ...patch } : state.draft,
     }));
   },
 
-  setIsAdjusting: (isAdjusting: boolean) => {
-    set({ isAdjusting });
+  replaceDraft: (draft) => {
+    set({ draft: { ...draft } });
   },
 
-  reset: () => {
+  exitEdit: () => {
     set({
-      enabled: false,
-      cropArea: DEFAULT_CROP_AREA,
-      isAdjusting: false,
+      isEditing: false,
+      editingImageId: null,
+      draft: null,
     });
   },
 }));
