@@ -61,11 +61,16 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
   const selectedImage = images.find((img) => img.id === selectedImageId);
   // 크롭 적용 상태 판단: 편집 중이면 원본 전체 표시, 아니면 selectedImage.crop 사용
   const activeCrop = cropIsEditing ? null : selectedImage?.crop ?? null;
-  // 크롭 적용 시 유효 이미지 너비 (로고/날짜 크기 계산 기준)
+  // 크롭 적용 시 유효 이미지 너비/높이 (로고·날짜 위치/크기 계산 기준 = "최종 출력 이미지" 크기)
   const effectiveW = mainImage
     ? activeCrop
       ? activeCrop.width * mainImage.width
       : mainImage.width
+    : 0;
+  const effectiveH = mainImage
+    ? activeCrop
+      ? activeCrop.height * mainImage.height
+      : mainImage.height
     : 0;
   const templateImage = images[0]; // 첫 번째 이미지가 템플릿
   const annotations = selectedImageId ? getAnnotations(selectedImageId) : [];
@@ -301,72 +306,66 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
   const handleLogoDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
-      if (!mainImage) {
-        console.warn('handleLogoDragEnd: mainImage is null');
+      if (!mainImage || effectiveW === 0 || effectiveH === 0) {
+        console.warn('handleLogoDragEnd: mainImage/effective size invalid');
         return;
       }
-      // 비율(0~1)로 변환하여 저장 (크롭이 적용된 상태면 오프셋 역변환)
-      const rawX = e.target.x() / scale / mainImage.width;
-      const rawY = e.target.y() / scale / mainImage.height;
-      const newX = activeCrop ? rawX + activeCrop.x : rawX;
-      const newY = activeCrop ? rawY + activeCrop.y : rawY;
+      // logoPosition은 "최종 출력 이미지" 내 0-1 비율로 저장
+      const newX = e.target.x() / (effectiveW * scale);
+      const newY = e.target.y() / (effectiveH * scale);
       console.log('handleLogoDragEnd:', {
         rawX: e.target.x(),
         rawY: e.target.y(),
         scale,
-        mainImageWidth: mainImage.width,
-        mainImageHeight: mainImage.height,
+        effectiveW,
+        effectiveH,
         normalizedX: newX,
         normalizedY: newY,
       });
       setLogoPosition({ x: newX, y: newY });
     },
-    [scale, mainImage, setLogoPosition, activeCrop]
+    [scale, mainImage, setLogoPosition, effectiveW, effectiveH]
   );
 
   const handleDateDragEnd = useCallback(
     (e: KonvaEventObject<DragEvent>) => {
-      if (!mainImage) {
-        console.warn('handleDateDragEnd: mainImage is null');
+      if (!mainImage || effectiveW === 0 || effectiveH === 0) {
+        console.warn('handleDateDragEnd: mainImage/effective size invalid');
         return;
       }
-      // 비율(0~1)로 변환하여 저장 (크롭이 적용된 상태면 오프셋 역변환)
-      const rawX = e.target.x() / scale / mainImage.width;
-      const rawY = e.target.y() / scale / mainImage.height;
-      const newX = activeCrop ? rawX + activeCrop.x : rawX;
-      const newY = activeCrop ? rawY + activeCrop.y : rawY;
+      // datePosition은 "최종 출력 이미지" 내 0-1 비율로 저장
+      const newX = e.target.x() / (effectiveW * scale);
+      const newY = e.target.y() / (effectiveH * scale);
       console.log('handleDateDragEnd:', {
         rawX: e.target.x(),
         rawY: e.target.y(),
         scale,
-        mainImageWidth: mainImage.width,
-        mainImageHeight: mainImage.height,
+        effectiveW,
+        effectiveH,
         normalizedX: newX,
         normalizedY: newY,
       });
       setDatePosition({ x: newX, y: newY });
     },
-    [scale, mainImage, setDatePosition, activeCrop]
+    [scale, mainImage, setDatePosition, effectiveW, effectiveH]
   );
 
   // 텍스트 크기 변환 완료 핸들러
   const handleDateTransformEnd = useCallback(
     (e: KonvaEventObject<Event>) => {
-      if (!mainImage) return;
+      if (!mainImage || effectiveW === 0 || effectiveH === 0) return;
 
       const node = e.target as Konva.Text;
       const scaleX = node.scaleX();
       const scaleY = node.scaleY();
 
-      // 너비 계산 (이미지 너비 대비 비율)
+      // 너비 계산 ("최종 출력 이미지" 너비 대비 비율)
       const currentWidth = node.width() * scaleX;
-      const newWidth = currentWidth / scale / mainImage.width;
+      const newWidth = currentWidth / scale / effectiveW;
 
-      // 위치도 업데이트 (크롭이 적용된 상태면 오프셋 역변환)
-      const rawX = node.x() / scale / mainImage.width;
-      const rawY = node.y() / scale / mainImage.height;
-      const newX = activeCrop ? rawX + activeCrop.x : rawX;
-      const newY = activeCrop ? rawY + activeCrop.y : rawY;
+      // 위치도 업데이트 (최종 이미지 내 0-1 비율로 저장)
+      const newX = node.x() / (effectiveW * scale);
+      const newY = node.y() / (effectiveH * scale);
 
       // scaleX와 scaleY가 거의 같으면 모서리 핸들 (비율 유지 크기 조절)
       // 다르면 좌우 핸들 (너비만 조절)
@@ -401,29 +400,28 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
 
       setDatePosition({ x: newX, y: newY });
     },
-    [mainImage, scale, dateScale, setDateScale, setDateWidth, setDatePosition, activeCrop]
+    [mainImage, scale, dateScale, setDateScale, setDateWidth, setDatePosition, effectiveW, effectiveH]
   );
 
   // 로고 크기 변환 완료 핸들러
   const handleLogoTransformEnd = useCallback(
     (e: KonvaEventObject<Event>) => {
-      if (!mainImage) return;
+      if (!mainImage || effectiveW === 0 || effectiveH === 0) return;
 
       const node = e.target as Konva.Image;
       const scaleX = node.scaleX();
 
       // 현재 logoScale에 scaleX를 곱해서 새로운 logoScale 계산
+      // (logoScale은 "최종 이미지 너비 대비 로고 너비 비율"이므로 스케일값만 곱하면 됨)
       const newLogoScale = logoScale * scaleX;
 
       // 노드의 scale을 1로 리셋
       node.scaleX(1);
       node.scaleY(1);
 
-      // 위치도 업데이트 (크롭이 적용된 상태면 오프셋 역변환)
-      const rawX = node.x() / scale / mainImage.width;
-      const rawY = node.y() / scale / mainImage.height;
-      const newX = activeCrop ? rawX + activeCrop.x : rawX;
-      const newY = activeCrop ? rawY + activeCrop.y : rawY;
+      // 위치 업데이트 (최종 이미지 내 0-1 비율로 저장)
+      const newX = node.x() / (effectiveW * scale);
+      const newY = node.y() / (effectiveH * scale);
 
       console.log('handleLogoTransformEnd:', {
         scaleX,
@@ -436,7 +434,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
       setLogoScale(newLogoScale);
       setLogoPosition({ x: newX, y: newY });
     },
-    [mainImage, scale, logoScale, setLogoScale, setLogoPosition, activeCrop]
+    [mainImage, scale, logoScale, setLogoScale, setLogoPosition, effectiveW, effectiveH]
   );
 
   const handleAnnotationDragEnd = useCallback(
@@ -628,19 +626,16 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             height={mainImage.height * scale}
           />
 
-          {/* Logo - 이미지 너비 기준으로 크기 설정 (logoScale=1.0 이면 이미지 너비와 동일) */}
+          {/* Logo - logoPosition은 "최종 출력 이미지" 기준 0-1 비율 */}
           {logoImage && mainImage && (() => {
             // 로고 가로세로 비율 유지
             const logoAspectRatio = logoImage.height / logoImage.width;
             // 로고 너비 = 유효 이미지 너비 * logoScale (크롭 적용 시 크롭 너비 기준)
             const logoWidth = effectiveW * logoScale * scale;
             const logoHeight = logoWidth * logoAspectRatio;
-            const logoX = activeCrop
-              ? (logoPosition.x - activeCrop.x) * mainImage.width * scale
-              : logoPosition.x * mainImage.width * scale;
-            const logoY = activeCrop
-              ? (logoPosition.y - activeCrop.y) * mainImage.height * scale
-              : logoPosition.y * mainImage.height * scale;
+            // logoPosition은 최종 이미지(=Stage) 내 0-1 비율
+            const logoX = logoPosition.x * effectiveW * scale;
+            const logoY = logoPosition.y * effectiveH * scale;
 
             console.log('Rendering logo:', {
               logoImage: !!logoImage,
@@ -650,9 +645,10 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
               logoY,
               logoOpacity,
               logoScale,
-              mainImageWidth: mainImage.width,
+              effectiveW,
+              effectiveH,
               scale,
-              logoPosition, // 원본 위치 값 확인
+              logoPosition,
             });
 
             return (
@@ -678,8 +674,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
             <Text
               ref={dateTextRef}
               text={dateText}
-              x={(activeCrop ? datePosition.x - activeCrop.x : datePosition.x) * mainImage.width * scale}
-              y={(activeCrop ? datePosition.y - activeCrop.y : datePosition.y) * mainImage.height * scale}
+              x={datePosition.x * effectiveW * scale}
+              y={datePosition.y * effectiveH * scale}
               fontSize={(effectiveW * dateScale / 3) * scale}
               fontFamily={font.family}
               fill={font.color}
