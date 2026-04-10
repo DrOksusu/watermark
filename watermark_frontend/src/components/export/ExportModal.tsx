@@ -128,53 +128,28 @@ export default function ExportModal({ open, onOpenChange, stageRef }: ExportModa
           offsetX, offsetY, drawW, drawH,
         );
 
-        // 로고 그리기 — 크롭 기준 좌표 변환
+        // 로고 그리기 — logoPosition은 "최종 출력 이미지" 내 0-1 비율
         if (preloadedLogo && logo) {
-          const logoXInCrop = crop
-            ? (logoPosition.x - crop.x) / crop.width
-            : logoPosition.x;
-          const logoYInCrop = crop
-            ? (logoPosition.y - crop.y) / crop.height
-            : logoPosition.y;
-
-          // 크롭 영역 내에 있을 때만 그림
-          if (
-            logoXInCrop >= 0 && logoXInCrop <= 1 &&
-            logoYInCrop >= 0 && logoYInCrop <= 1
-          ) {
-            ctx.globalAlpha = logoOpacity;
-            const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
-            const logoW = drawW * logoScale;
-            const logoH = logoW * logoAspectRatio;
-            const logoPxX = offsetX + logoXInCrop * drawW;
-            const logoPxY = offsetY + logoYInCrop * drawH;
-            ctx.drawImage(preloadedLogo, logoPxX, logoPxY, logoW, logoH);
-            ctx.globalAlpha = 1;
-          }
+          ctx.globalAlpha = logoOpacity;
+          const logoAspectRatio = preloadedLogo.height / preloadedLogo.width;
+          const logoW = drawW * logoScale;
+          const logoH = logoW * logoAspectRatio;
+          const logoPxX = offsetX + logoPosition.x * drawW;
+          const logoPxY = offsetY + logoPosition.y * drawH;
+          ctx.drawImage(preloadedLogo, logoPxX, logoPxY, logoW, logoH);
+          ctx.globalAlpha = 1;
         }
 
-        // 날짜 텍스트 — 크롭 기준 좌표 변환
+        // 날짜 텍스트 — datePosition은 "최종 출력 이미지" 내 0-1 비율
         if (dateText && font) {
-          const dateXInCrop = crop
-            ? (datePosition.x - crop.x) / crop.width
-            : datePosition.x;
-          const dateYInCrop = crop
-            ? (datePosition.y - crop.y) / crop.height
-            : datePosition.y;
-
-          if (
-            dateXInCrop >= 0 && dateXInCrop <= 1 &&
-            dateYInCrop >= 0 && dateYInCrop <= 1
-          ) {
-            ctx.globalAlpha = dateOpacity;
-            const scaledFontSize = drawW * dateScale / 3;
-            ctx.font = buildFontString(scaledFontSize, font.family);
-            ctx.fillStyle = font.color;
-            const dateX = offsetX + dateXInCrop * drawW;
-            const dateY = offsetY + dateYInCrop * drawH;
-            ctx.fillText(dateText, dateX, dateY + scaledFontSize);
-            ctx.globalAlpha = 1;
-          }
+          ctx.globalAlpha = dateOpacity;
+          const scaledFontSize = drawW * dateScale / 3;
+          ctx.font = buildFontString(scaledFontSize, font.family);
+          ctx.fillStyle = font.color;
+          const dateX = offsetX + datePosition.x * drawW;
+          const dateY = offsetY + datePosition.y * drawH;
+          ctx.fillText(dateText, dateX, dateY + scaledFontSize);
+          ctx.globalAlpha = 1;
         }
 
         // 주석 그리기 — annotation.position은 원본 이미지 픽셀 기준
