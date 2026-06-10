@@ -1,54 +1,51 @@
-import { Request, Response, NextFunction } from 'express';
-import prisma from '../config/database';
+import { Request, Response, NextFunction } from 'express'
+import prisma from '../config/database'
+import { loadPortalPublicKey } from '../config/env'
+import { verifyPortalToken, extractToken } from '../auth/portal-token'
+import { resolveLocalUser } from '../auth/jit-user'
 
-// Express Request 타입 확장
+// req.user = 로컬 워터마크 User (포털 신원 매핑 결과)
 declare global {
   namespace Express {
     interface Request {
-      user?: {
-        id: number;       // User.id (내부 PK)
-        userId: number;   // 메인 프로젝트 userId
-        clinicId: number; // 병원 ID
-      };
+      user?: { id: number; clinicId: number; externalId: string }
     }
   }
 }
 
-// unifiedToken 검증 미들웨어
-export async function authMiddleware(
-  req: Request,
-  res: Response,
-  next: NextFunction
-): Promise<void> {
+const SERVICE_CODE = 'watermark'
+const publicKey = loadPortalPublicKey() // 기동 시 1회. 미설정이면 throw로 부팅 실패.
+
+export async function authMiddleware(req: Request, res: Response, next: NextFunction): Promise<void> {
+  const token = extractToken(req)
+  if (!token) {
+    res.status(401).json({ success: false, error: '인증 토큰이 필요합니다' })
+    return
+  }
+  let payload
   try {
-    const authHeader = req.headers.authorization;
-    if (!authHeader?.startsWith('Bearer ')) {
-      res.status(401).json({ success: false, error: '인증 토큰이 필요합니다' });
-      return;
-    }
-
-    const token = authHeader.slice(7);
-
-    // DB에서 토큰으로 사용자 조회
-    const user = await prisma.user.findFirst({
-      where: { unifiedToken: token },
-    });
-
-    if (!user) {
-      res.status(401).json({ success: false, error: '유효하지 않은 토큰입니다' });
-      return;
-    }
-
-    // req.user에 사용자 정보 설정
-    req.user = {
-      id: user.id,
-      userId: user.userId,
-      clinicId: user.clinicId,
-    };
-
-    next();
+    payload = verifyPortalToken(token, publicKey)
+  } catch {
+    res.status(401).json({ success: false, error: '유효하지 않거나 만료된 토큰입니다' })
+    return
+  }
+  if (!payload.services.includes(SERVICE_CODE)) {
+    res.status(403).json({ success: false, error: '이 서비스에 대한 접근 권한이 없습니다' })
+    return
+  }
+  try {
+    const user = await resolveLocalUser(prisma, payload)
+    req.user = { id: user.id, clinicId: user.clinicId, externalId: user.externalId }
+    next()
   } catch (error) {
-    console.error('인증 미들웨어 오류:', error);
-    res.status(500).json({ success: false, error: '인증 처리 중 오류가 발생했습니다' });
+    // JIT 동시성(P2002 unique) 흡수: 재조회 1회
+    const retried = await prisma.user.findUnique({ where: { externalId: payload.userId } })
+    if (retried) {
+      req.user = { id: retried.id, clinicId: retried.clinicId, externalId: retried.externalId }
+      next()
+      return
+    }
+    console.error('인증 처리 오류:', error)
+    res.status(500).json({ success: false, error: '인증 처리 중 오류가 발생했습니다' })
   }
 }
