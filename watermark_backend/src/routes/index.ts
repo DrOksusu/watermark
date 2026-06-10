@@ -13,6 +13,10 @@ const router = Router();
 router.use('/logo', logoFileRoute);  // GET /api/logo/:id/file (캔버스 로드용 공개)
 
 // 인증 필요 라우트 (authMiddleware 적용)
+// GET /api/me - 현재 로그인 사용자 정보 (프론트 세션 표시용)
+router.get('/me', authMiddleware, (req, res) => {
+  res.json({ success: true, data: req.user });
+});
 router.use('/images', authMiddleware, imageRoutes);
 router.use('/logo', authMiddleware, logoRoutes);
 router.use('/settings', authMiddleware, settingsRoutes);
