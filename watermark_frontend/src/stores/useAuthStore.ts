@@ -1,52 +1,41 @@
 import { create } from 'zustand';
 
-const TOKEN_KEY = 'unified_token';
-
-interface AuthState {
-  unifiedToken: string | null;
-  isAuthenticated: boolean;
-  setToken: (token: string) => void;
-  clearToken: () => void;
-  initFromHash: () => void;
+export interface SessionUser {
+  id: number;
+  clinicId: number;
+  externalId: string;
 }
 
+interface AuthState {
+  user: SessionUser | null;
+  status: 'loading' | 'authenticated' | 'error';
+  fetchSession: () => Promise<void>;
+  clearSession: () => void;
+}
+
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
+
 export const useAuthStore = create<AuthState>((set) => ({
-  unifiedToken: null,
-  isAuthenticated: false,
+  user: null,
+  status: 'loading',
 
-  setToken: (token: string) => {
-    localStorage.setItem(TOKEN_KEY, token);
-    set({ unifiedToken: token, isAuthenticated: true });
-  },
-
-  clearToken: () => {
-    localStorage.removeItem(TOKEN_KEY);
-    set({ unifiedToken: null, isAuthenticated: false });
-  },
-
-  initFromHash: () => {
-    // 1. URL 해시에서 토큰 추출 시도
-    const hash = window.location.hash;
-    if (hash) {
-      const match = hash.match(/unifiedToken=([^&]+)/);
-      if (match) {
-        const token = decodeURIComponent(match[1]);
-        localStorage.setItem(TOKEN_KEY, token);
-        // 해시 제거 (URL 정리)
-        history.replaceState(null, '', window.location.pathname + window.location.search);
-        set({ unifiedToken: token, isAuthenticated: true });
+  // 쿠키 세션 기반: /api/me로 현재 사용자 정보 로딩
+  fetchSession: async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/me`, {
+        method: 'GET',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        set({ user: null, status: 'error' });
         return;
       }
+      const json = await res.json();
+      set({ user: json.data ?? null, status: 'authenticated' });
+    } catch {
+      set({ user: null, status: 'error' });
     }
-
-    // 2. localStorage에서 기존 토큰 복원
-    const stored = localStorage.getItem(TOKEN_KEY);
-    if (stored) {
-      set({ unifiedToken: stored, isAuthenticated: true });
-      return;
-    }
-
-    // 3. 토큰 없음
-    set({ unifiedToken: null, isAuthenticated: false });
   },
+
+  clearSession: () => set({ user: null, status: 'error' }),
 }));

@@ -22,9 +22,9 @@ function parseResponse<T>(response: Response, text: string): ApiResponse<T> {
   }
 
   if (!response.ok) {
-    // 401 응답 시 토큰 만료 처리
+    // 401 응답 시 세션 초기화
     if (response.status === 401) {
-      useAuthStore.getState().clearToken();
+      useAuthStore.getState().clearSession();
     }
     return {
       success: false,
@@ -40,17 +40,11 @@ async function fetchApi<T>(
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
   try {
-    const token = useAuthStore.getState().unifiedToken;
-    const authHeaders: Record<string, string> = {};
-    if (token) {
-      authHeaders['Authorization'] = `Bearer ${token}`;
-    }
-
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       ...options,
+      credentials: 'include',
       headers: {
         'Content-Type': 'application/json',
-        ...authHeaders,
         ...options.headers,
       },
     });
@@ -72,16 +66,10 @@ async function uploadFile<T>(
   formData: FormData
 ): Promise<ApiResponse<T>> {
   try {
-    const token = useAuthStore.getState().unifiedToken;
-    const headers: Record<string, string> = {};
-    if (token) {
-      headers['Authorization'] = `Bearer ${token}`;
-    }
     // Content-Type은 설정하지 않음 (브라우저가 FormData boundary 자동 설정)
-
     const response = await fetch(`${API_BASE_URL}${endpoint}`, {
       method: 'POST',
-      headers,
+      credentials: 'include',
       body: formData,
     });
 
