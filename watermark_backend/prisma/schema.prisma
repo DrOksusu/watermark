@@ -7,20 +7,31 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+model Clinic {
+  id        Int      @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  users User[]
+
+  @@map("clinics")
+}
+
 model User {
   id           Int      @id @default(autoincrement())
-  userId       Int      @unique @map("user_id")
+  /// 포털 userId(cuid)
+  externalId   String   @unique @map("external_id")
   email        String   @db.VarChar(200)
   name         String   @db.VarChar(50)
-  provider     String   @db.VarChar(20)
+  provider     String?  @db.VarChar(20)
   clinicId     Int      @map("clinic_id")
-  unifiedToken String   @map("unified_token") @db.Text
+  clinic       Clinic   @relation(fields: [clinicId], references: [id])
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
 
   // 사용자별 데이터 관계
   images              Image[]
-  logos                Logo[]
+  logos               Logo[]
   settings            Settings[]
   annotationTemplates AnnotationTemplate[]
 
