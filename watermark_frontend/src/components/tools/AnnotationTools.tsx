@@ -14,6 +14,7 @@ import {
   Type,
   Pencil,
   Trash2,
+  X,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnnotationType } from '@/types';
@@ -26,6 +27,22 @@ const TOOLS: { type: AnnotationType; icon: React.ReactNode; label: string }[] = 
   { type: 'arrow', icon: <ArrowRight className="h-4 w-4" />, label: '화살표' },
   { type: 'text', icon: <Type className="h-4 w-4" />, label: '텍스트' },
 ];
+
+const TYPE_LABEL: Record<AnnotationType, string> = {
+  'box': '실선 박스',
+  'dashed-box': '점선 박스',
+  'dashed-circle': '점선 원',
+  'arrow': '화살표',
+  'text': '텍스트',
+};
+
+const TYPE_ICON: Record<AnnotationType, React.ReactNode> = {
+  'box': <Square className="h-3.5 w-3.5" />,
+  'dashed-box': <SquareDashed className="h-3.5 w-3.5" />,
+  'dashed-circle': <CircleDashed className="h-3.5 w-3.5" />,
+  'arrow': <ArrowRight className="h-3.5 w-3.5" />,
+  'text': <Type className="h-3.5 w-3.5" />,
+};
 
 const COLORS = [
   '#FF0000',
@@ -41,11 +58,14 @@ const COLORS = [
 export default function AnnotationTools() {
   const {
     selectedTool,
+    selectedAnnotationId,
     toolSettings,
     setTool,
     setToolSettings,
+    setSelectedAnnotation,
     annotations,
     clearAnnotations,
+    removeAnnotation,
   } = useAnnotationStore();
   const selectedImageId = useImageStore((state) => state.selectedImageId);
   const currentAnnotations = selectedImageId ? annotations[selectedImageId] || [] : [];
@@ -164,7 +184,7 @@ export default function AnnotationTools() {
         )}
 
         {currentAnnotations.length > 0 && (
-          <div className="pt-2 border-t">
+          <div className="pt-2 border-t space-y-2">
             <div className="flex items-center justify-between">
               <span className="text-xs text-muted-foreground">
                 {currentAnnotations.length}개의 강조 요소
@@ -179,6 +199,47 @@ export default function AnnotationTools() {
                 전체 삭제
               </Button>
             </div>
+            {/* 요소별 행: 좌측 타입/색상/라벨, 우측 X 삭제 버튼. 행 클릭 시 캔버스에서 선택 */}
+            <ul className="space-y-1 max-h-48 overflow-y-auto">
+              {currentAnnotations.map((a, i) => {
+                const isSelected = selectedAnnotationId === a.id;
+                const label = a.type === 'text'
+                  ? `텍스트: ${(a.text ?? '').slice(0, 12) || '(빈 텍스트)'}`
+                  : `${TYPE_LABEL[a.type]} #${i + 1}`;
+                return (
+                  <li
+                    key={a.id}
+                    className={cn(
+                      'flex items-center justify-between gap-2 rounded px-2 py-1 text-xs cursor-pointer transition',
+                      isSelected ? 'bg-primary/10 ring-1 ring-primary/30' : 'hover:bg-muted',
+                    )}
+                    onClick={() => setSelectedAnnotation(a.id)}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      <span
+                        className="inline-block w-2.5 h-2.5 rounded-sm shrink-0 border border-black/10"
+                        style={{ backgroundColor: a.style.color }}
+                        aria-hidden="true"
+                      />
+                      <span className="shrink-0 text-muted-foreground">{TYPE_ICON[a.type]}</span>
+                      <span className="truncate">{label}</span>
+                    </span>
+                    <button
+                      type="button"
+                      aria-label={`${label} 삭제`}
+                      title="이 요소 삭제"
+                      className="text-muted-foreground hover:text-destructive transition shrink-0"
+                      onClick={(e) => {
+                        e.stopPropagation(); // 행 클릭(선택)과 분리
+                        if (selectedImageId) removeAnnotation(selectedImageId, a.id);
+                      }}
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           </div>
         )}
 
