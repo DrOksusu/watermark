@@ -64,6 +64,7 @@ export interface Annotation {
   style: AnnotationStyle;
   text?: string;
   points?: number[]; // for arrow
+  fontSize?: number; // text 전용 — 생성 시점의 크기를 annotation에 고정 저장. 미설정 시 toolSettings.fontSize fallback
 }
 
 export interface ToolSettings {

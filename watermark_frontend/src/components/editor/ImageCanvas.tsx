@@ -212,6 +212,8 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
         if (selectedTool === 'text') {
           const text = prompt('텍스트를 입력하세요:');
           if (text) {
+            // 생성 시점의 toolSettings.fontSize를 annotation에 고정 저장
+            // (이후 도구 fontSize가 바뀌어도 기존 텍스트는 자기 크기 유지)
             addAnnotation(selectedImageId, {
               type: 'text',
               position: adjustedPos,
@@ -223,6 +225,7 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
                 borderRadius: 0,
               },
               text,
+              fontSize: toolSettings.fontSize,
             });
             setTool(null); // 도구 사용 후 자동 해제
           }
@@ -452,23 +455,60 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     [selectedImageId, scale, updateAnnotation, mainImage, activeCrop]
   );
 
+  // 텍스트 annotation 더블클릭 — 내용 수정 prompt
+  const handleAnnotationDblClick = useCallback(
+    (annotation: Annotation) => {
+      if (!selectedImageId || annotation.type !== 'text') return;
+      const next = prompt('텍스트 수정:', annotation.text ?? '');
+      if (next === null) return; // 취소
+      updateAnnotation(selectedImageId, annotation.id, { text: next });
+    },
+    [selectedImageId, updateAnnotation],
+  );
+
+  // 텍스트 annotation 크기 변환 완료 — fontSize 갱신, scale 리셋
+  const handleTextAnnotationTransformEnd = useCallback(
+    (annotation: Annotation, e: KonvaEventObject<Event>) => {
+      if (!selectedImageId) return;
+      const node = e.target as Konva.Text;
+      const scaleY = node.scaleY();
+      const baseFontSize = annotation.fontSize ?? toolSettings.fontSize;
+      const newFontSize = Math.max(4, Math.round(baseFontSize * scaleY));
+      // 노드 scale 리셋(다음 변환에서 누적 안 되도록)
+      node.scaleX(1);
+      node.scaleY(1);
+      updateAnnotation(selectedImageId, annotation.id, {
+        fontSize: newFontSize,
+        size: { width: annotation.size.width, height: newFontSize },
+      });
+    },
+    [selectedImageId, toolSettings.fontSize, updateAnnotation],
+  );
+
   const renderAnnotation = (annotation: Annotation) => {
     if (!mainImage) return null;
     const { id, type, position, size, style, text, points } = annotation;
     // 주석 좌표를 표시 좌표로 변환 (크롭 적용 고려)
-    // annotation.position은 원본 이미지 픽셀 기준
+    // annotation.position은 원본 이미지 픽셀 기준 좌상단
     const cropOffsetX = activeCrop ? activeCrop.x * mainImage.width : 0;
     const cropOffsetY = activeCrop ? activeCrop.y * mainImage.height : 0;
     const displayPosX = (position.x - cropOffsetX) * scale;
     const displayPosY = (position.y - cropOffsetY) * scale;
-    const isSelected = selectedAnnotationId === id;
+
+    // annotation 클릭 시 selectedAnnotation + selectedElement 둘 다 set 해야
+    // Transformer가 해당 노드에 바인딩됨 (텍스트 크기 조정 가능)
+    const selectAnnotation = () => {
+      setSelectedAnnotation(id);
+      setSelectedElement('annotation');
+    };
 
     const commonProps = {
       id,
       x: displayPosX,
       y: displayPosY,
       draggable: !selectedTool,
-      onClick: () => setSelectedAnnotation(id),
+      onClick: selectAnnotation,
+      onTap: selectAnnotation,
       onDragEnd: (e: KonvaEventObject<DragEvent>) => handleAnnotationDragEnd(id, e),
     };
 
@@ -488,13 +528,18 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     }
 
     if (type === 'text' && text) {
+      // annotation.fontSize 우선 사용 (없으면 도구 설정값 fallback). 이전 데이터 호환.
+      const effectiveFontSize = annotation.fontSize ?? toolSettings.fontSize;
       return (
         <Text
           key={id}
           {...commonProps}
           text={text}
-          fontSize={toolSettings.fontSize * scale}
+          fontSize={effectiveFontSize * scale}
           fill={style.color}
+          onDblClick={() => handleAnnotationDblClick(annotation)}
+          onDblTap={() => handleAnnotationDblClick(annotation)}
+          onTransformEnd={(e) => handleTextAnnotationTransformEnd(annotation, e)}
         />
       );
     }
@@ -515,18 +560,20 @@ export default function ImageCanvas({ stageRef }: ImageCanvasProps) {
     }
 
     if (type === 'dashed-circle') {
+      // Ellipse는 (x,y)가 중심점이라 그대로 두면 drag 종료 시 위치 의미 충돌(=튕김 버그).
+      // Group으로 감싸 (x,y) 의미를 좌상단으로 통일하고, 내부 Ellipse는 Group 로컬 좌표에서 중심에 배치.
       return (
-        <Ellipse
-          key={id}
-          {...commonProps}
-          x={displayPosX + (size.width / 2) * scale}
-          y={displayPosY + (size.height / 2) * scale}
-          radiusX={(size.width / 2) * scale}
-          radiusY={(size.height / 2) * scale}
-          stroke={style.color}
-          strokeWidth={style.thickness}
-          dash={[10, 5]}
-        />
+        <Group key={id} {...commonProps}>
+          <Ellipse
+            x={(size.width / 2) * scale}
+            y={(size.height / 2) * scale}
+            radiusX={(size.width / 2) * scale}
+            radiusY={(size.height / 2) * scale}
+            stroke={style.color}
+            strokeWidth={style.thickness}
+            dash={[10, 5]}
+          />
+        </Group>
       );
     }
 
