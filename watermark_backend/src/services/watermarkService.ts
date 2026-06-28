@@ -117,6 +117,7 @@ export const watermarkService = {
         filename: outputFilename,
         url: `/uploads/processed/${outputFilename}`,
         settings: JSON.parse(JSON.stringify(settings)),
+        ownerId: ownerId ?? null,
       },
     });
 

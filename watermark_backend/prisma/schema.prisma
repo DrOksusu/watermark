@@ -34,6 +34,7 @@ model User {
   logos               Logo[]
   settings            Settings[]
   annotationTemplates AnnotationTemplate[]
+  processedImages     ProcessedImage[]
 
   @@map("users")
 }
@@ -126,6 +127,10 @@ model ProcessedImage {
   url          String
   settings     Json
   createdAt    DateTime @default(now())
+
+  // 사용자 관계 (nullable — 기존 데이터 호환)
+  ownerId      Int?     @map("owner_id")
+  owner        User?    @relation(fields: [ownerId], references: [id])
 
   @@map("processed_images")
 }
