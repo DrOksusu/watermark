@@ -5,6 +5,7 @@ import { logoFileRoute } from './logoRoutes';
 import settingsRoutes from './settingsRoutes';
 import watermarkRoutes from './watermarkRoutes';
 import annotationRoutes from './annotationRoutes';
+import { meRouter } from './meRoutes';
 import { authMiddleware } from '../middleware/authMiddleware';
 
 const router = Router();
@@ -17,6 +18,8 @@ router.use('/logo', logoFileRoute);  // GET /api/logo/:id/file (캔버스 로드
 router.get('/me', authMiddleware, (req, res) => {
   res.json({ success: true, data: req.user });
 });
+// GET /api/me/points - 포인트 조회
+router.use('/me', authMiddleware, meRouter);
 router.use('/images', authMiddleware, imageRoutes);
 router.use('/logo', authMiddleware, logoRoutes);
 router.use('/settings', authMiddleware, settingsRoutes);
