@@ -13,3 +13,10 @@ export function safeReturnUrl(url: string): string | null {
 export function portalLoginUrl(portalBase: string, returnUrl: string): string {
   return `${portalBase}/login?returnUrl=${encodeURIComponent(returnUrl)}`
 }
+
+// silent-refresh 브리지 URL. 만료 시 포털 로그인 대신 이 페이지로 보내
+// 브라우저가 api.koco.me/auth/refresh를 직접 호출해 무재로그인 갱신을 시도한다.
+// origin(watermark.koco.me) 기준 절대 URL로 만든다(Edge redirect는 절대 URL 필요).
+export function refreshBridgeUrl(origin: string, returnUrl: string): string {
+  return `${origin}/refresh?returnUrl=${encodeURIComponent(returnUrl)}`
+}
