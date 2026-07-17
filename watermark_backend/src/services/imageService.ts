@@ -14,6 +14,7 @@ export interface ImageData {
   height: number;
   size: number;
   mimeType: string;
+  createdAt: Date; // 포인트 발행 occurredAt 용 (Prisma가 반환)
 }
 
 export const imageService = {

@@ -13,6 +13,7 @@ export interface LogoData {
   width: number;
   height: number;
   isActive: boolean;
+  createdAt: Date; // 포인트 발행 occurredAt 용 (Prisma가 반환)
 }
 
 export const logoService = {

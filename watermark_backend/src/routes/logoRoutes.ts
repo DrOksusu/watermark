@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { uploadLogo } from '../config/multer';
 import { logoService } from '../services/logoService';
+import { emitPointEvent } from '../services/pointsEmitter';
 import { ApiResponse } from '../types';
 import { getFileFromS3, getS3KeyFromUrl } from '../config/s3';
 import { USE_S3 } from '../config/multer';
@@ -71,6 +72,14 @@ router.post('/upload', uploadLogo.single('logo'), async (req: Request, res: Resp
     }
 
     const logo = await logoService.createLogo(file, req.user!.id, name);
+
+    // 로고 등록에 대해 포털 리더보드 포인트 발행(fire-and-forget)
+    emitPointEvent({
+      externalId: req.user!.externalId,
+      action: 'logo',
+      sourceRef: logo.id,
+      occurredAt: logo.createdAt,
+    }).catch(() => {});
 
     const response: ApiResponse = {
       success: true,

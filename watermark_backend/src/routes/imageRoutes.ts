@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { uploadImages } from '../config/multer';
 import { imageService } from '../services/imageService';
+import { emitPointEvent } from '../services/pointsEmitter';
 import { ApiResponse } from '../types';
 
 const router = Router();
@@ -20,6 +21,16 @@ router.post('/upload', uploadImages.array('images', 50), async (req: Request, re
     }
 
     const images = await imageService.createImages(files, req.user!.id);
+
+    // 업로드된 이미지 각각에 대해 포털 리더보드 포인트 발행(fire-and-forget)
+    for (const img of images) {
+      emitPointEvent({
+        externalId: req.user!.externalId,
+        action: 'image',
+        sourceRef: img.id,
+        occurredAt: img.createdAt,
+      }).catch(() => {});
+    }
 
     const response: ApiResponse = {
       success: true,
