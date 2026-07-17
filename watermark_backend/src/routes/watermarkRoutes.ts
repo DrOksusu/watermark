@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { watermarkService } from '../services/watermarkService';
+import { emitPointEvent } from '../services/pointsEmitter';
 import { ApiResponse, WatermarkSettings, OutputSettings } from '../types';
 
 const router = Router();
@@ -66,6 +67,16 @@ router.post('/batch', async (req: Request, res: Response) => {
     }
 
     const result = await watermarkService.batchProcess(imageIds, settings, outputSettings, req.user!.id);
+
+    // 처리 완료분에 대해 포털 리더보드 포인트 발행(fire-and-forget). preview는 제외 — 실제 저장만 적립.
+    for (const f of result.files) {
+      emitPointEvent({
+        externalId: req.user!.externalId,
+        action: 'processed',
+        sourceRef: f.id,
+        occurredAt: f.createdAt,
+      }).catch(() => {});
+    }
 
     const response: ApiResponse = {
       success: true,

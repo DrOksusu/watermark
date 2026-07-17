@@ -44,11 +44,12 @@ jobs:
           AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
           AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           AWS_S3_BUCKET: ${{ secrets.AWS_S3_BUCKET }}
+          INTERNAL_API_SECRET: ${{ secrets.INTERNAL_API_SECRET }}
         with:
           host: ${{ secrets.SSH_HOST }}
           username: ubuntu
           key: ${{ secrets.SSH_PRIVATE_KEY }}
-          envs: DATABASE_URL,MIGRATE_DATABASE_URL,PORTAL_PUBLIC_KEY,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET
+          envs: DATABASE_URL,MIGRATE_DATABASE_URL,PORTAL_PUBLIC_KEY,AWS_ACCESS_KEY_ID,AWS_SECRET_ACCESS_KEY,AWS_S3_BUCKET,INTERNAL_API_SECRET
           script: |
             set -e
             # 1) 최신 이미지 받기
@@ -83,6 +84,8 @@ jobs:
               -e "AWS_S3_BUCKET=${AWS_S3_BUCKET}" \
               -e AWS_REGION=ap-northeast-2 \
               -e MAX_FILE_SIZE=10485760 \
+              -e PORTAL_INTERNAL_API_URL=https://api.koco.me \
+              -e "INTERNAL_API_SECRET=${INTERNAL_API_SECRET}" \
               oksusu2020/watermark-koco-api:latest
             docker image prune -f
 

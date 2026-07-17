@@ -9,9 +9,11 @@ import { imageService } from './imageService';
 import { logoService } from './logoService';
 
 export interface ProcessedImageResult {
+  id: string; // ProcessedImage.id — 포털 포인트 발행의 멱등 키(sourceRef)로 사용
   originalName: string;
   outputName: string;
   url: string;
+  createdAt: Date; // 포인트 발행 occurredAt으로 사용
 }
 
 export const watermarkService = {
@@ -111,7 +113,7 @@ export const watermarkService = {
     }
 
     // Save to database
-    await prisma.processedImage.create({
+    const processed = await prisma.processedImage.create({
       data: {
         originalId: imageId,
         filename: outputFilename,
@@ -122,9 +124,11 @@ export const watermarkService = {
     });
 
     return {
+      id: processed.id,
       originalName: image.originalName,
       outputName: outputFilename,
       url: `/uploads/processed/${outputFilename}`,
+      createdAt: processed.createdAt,
     };
   },
 
